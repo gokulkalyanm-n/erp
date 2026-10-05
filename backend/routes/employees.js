@@ -89,10 +89,21 @@ router.get('/:id', protect, async (req, res) => {
 // PUT /api/employees/:id — Admin: update employee
 router.put('/:id', protect, adminOnly, async (req, res) => {
   try {
-    const { name, email, department, designation, phone, skills, address, joiningDate } = req.body;
+    const { employeeId, name, email, department, designation, phone, skills, address, joiningDate } = req.body;
 
     const employee = await User.findById(req.params.id);
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
+
+    // If employeeId is being changed, check uniqueness
+    if (employeeId && employeeId.trim().toUpperCase() !== employee.employeeId) {
+      const idExists = await User.findOne({
+        employeeId: employeeId.trim().toUpperCase(),
+        _id: { $ne: req.params.id }
+      });
+      if (idExists)
+        return res.status(400).json({ message: `Employee ID "${employeeId.trim().toUpperCase()}" is already taken` });
+      employee.employeeId = employeeId.trim().toUpperCase();
+    }
 
     // If email is being changed, check uniqueness
     if (email && email !== employee.email) {

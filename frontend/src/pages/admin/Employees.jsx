@@ -254,14 +254,15 @@ export default function Employees() {
               </>
             ) : (
               <div>
-                <label className="label">Employee ID</label>
+                <label className="label">Employee ID *</label>
                 <input
-                  className="input font-mono bg-gray-50 text-gray-500 cursor-not-allowed"
+                  className="input font-mono uppercase"
+                  required
+                  placeholder="e.g. EMP001"
                   value={form.employeeId}
-                  readOnly
-                  title="Employee ID cannot be changed after creation"
+                  onChange={e => setForm({ ...form, employeeId: e.target.value.toUpperCase() })}
                 />
-                <p className="text-xs text-gray-400 mt-1">Employee ID cannot be changed.</p>
+                <p className="text-xs text-gray-400 mt-1">Must be unique across all employees.</p>
               </div>
             )}
             <div>
