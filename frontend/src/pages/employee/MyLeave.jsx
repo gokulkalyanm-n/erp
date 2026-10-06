@@ -123,6 +123,10 @@ export default function MyLeave() {
           )}
           {leaves.map(l => {
             const cfg = statusConfig[l.status] || statusConfig.pending;
+            // Override label for in-progress stages
+            const stageLabel = l.status === 'pending' && l.stage === 'super_admin'
+              ? 'With Super Admin'
+              : cfg.label;
             const Icon = cfg.icon;
             return (
               <div key={l._id} className="card hover:shadow-md transition-shadow">
@@ -131,7 +135,7 @@ export default function MyLeave() {
                     <div className="flex flex-wrap items-center gap-2 mb-1.5">
                       <p className="font-semibold text-gray-900">{LEAVE_TYPES.find(t => t.value === l.leaveType)?.label || l.leaveType}</p>
                       <span className={`${cfg.badge} flex items-center gap-1`}>
-                        <Icon className="w-3 h-3" />{cfg.label}
+                        <Icon className="w-3 h-3" />{stageLabel}
                       </span>
                     </div>
                     <p className="text-sm text-gray-500">
@@ -139,9 +143,14 @@ export default function MyLeave() {
                       <span className="ml-2 font-medium text-gray-700">({l.numberOfDays} day{l.numberOfDays !== 1 ? 's' : ''})</span>
                     </p>
                     <p className="text-xs text-gray-400 mt-1 line-clamp-1">{l.reason}</p>
-                    {l.status !== 'pending' && l.reviewComment && (
+                    {l.status !== 'pending' && l.hrReview?.comment && (
                       <p className="text-xs mt-1.5 bg-gray-50 rounded px-2 py-1 text-gray-600 line-clamp-1">
-                        💬 {l.reviewComment}
+                        💬 HR: {l.hrReview.comment}
+                      </p>
+                    )}
+                    {l.superAdminReview?.comment && (
+                      <p className="text-xs mt-1 bg-gray-50 rounded px-2 py-1 text-gray-600 line-clamp-1">
+                        💬 Admin: {l.superAdminReview.comment}
                       </p>
                     )}
                   </div>
@@ -149,7 +158,7 @@ export default function MyLeave() {
                     <button onClick={() => setViewModal(l)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600">
                       <Eye className="w-4 h-4" />
                     </button>
-                    {l.status === 'pending' && (
+                    {l.stage === 'hr' && l.status === 'pending' && (
                       <button onClick={() => handleCancel(l)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -232,17 +241,73 @@ export default function MyLeave() {
                 <p className="bg-gray-50 rounded-lg p-3 text-gray-700">{viewModal.additionalInfo}</p>
               </div>
             )}
-            {viewModal.status !== 'pending' && (
-              <div className={`rounded-xl p-4 border ${viewModal.status === 'approved' ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
-                <p className={`text-xs font-semibold uppercase tracking-wider mb-1 ${viewModal.status === 'approved' ? 'text-green-600' : 'text-red-600'}`}>
-                  {viewModal.status === 'approved' ? '✅ Approved' : '❌ Rejected'}
-                  {viewModal.reviewedBy && ` by ${viewModal.reviewedBy.name}`}
-                </p>
-                {viewModal.reviewComment && (
-                  <p className={viewModal.status === 'approved' ? 'text-green-800' : 'text-red-800'}>{viewModal.reviewComment}</p>
-                )}
+
+            {/* Two-stage approval timeline */}
+            <div className="border border-gray-100 rounded-xl p-4 space-y-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Approval Progress</p>
+
+              {/* Stage 1 — HR */}
+              <div className="flex items-start gap-3">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                  viewModal.hrReview?.action === 'approved' ? 'bg-green-100 text-green-600' :
+                  viewModal.hrReview?.action === 'rejected' ? 'bg-red-100 text-red-500' :
+                  'bg-yellow-100 text-yellow-600'
+                }`}>
+                  {viewModal.hrReview?.action === 'approved' ? <CheckCircle className="w-3.5 h-3.5" /> :
+                   viewModal.hrReview?.action === 'rejected' ? <XCircle className="w-3.5 h-3.5" /> :
+                   <Clock className="w-3.5 h-3.5" />}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">
+                    HR Review
+                    {viewModal.hrReview?.action && (
+                      <span className={`ml-1.5 text-xs font-normal ${viewModal.hrReview.action === 'approved' ? 'text-green-600' : 'text-red-500'}`}>
+                        — {viewModal.hrReview.action}
+                      </span>
+                    )}
+                  </p>
+                  {viewModal.hrReview?.reviewedBy
+                    ? <p className="text-xs text-gray-400">by {viewModal.hrReview.reviewedBy.name}</p>
+                    : <p className="text-xs text-gray-400">Pending HR action</p>}
+                  {viewModal.hrReview?.comment && (
+                    <p className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1 mt-1">{viewModal.hrReview.comment}</p>
+                  )}
+                </div>
               </div>
-            )}
+
+              {/* Stage 2 — Super Admin */}
+              <div className="flex items-start gap-3">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                  !viewModal.hrReview?.action || viewModal.hrReview?.action !== 'approved'
+                    ? 'bg-gray-100 text-gray-300'
+                    : viewModal.superAdminReview?.action === 'approved' ? 'bg-green-100 text-green-600' :
+                      viewModal.superAdminReview?.action === 'rejected' ? 'bg-red-100 text-red-500' :
+                      'bg-yellow-100 text-yellow-600'
+                }`}>
+                  {viewModal.superAdminReview?.action === 'approved' ? <CheckCircle className="w-3.5 h-3.5" /> :
+                   viewModal.superAdminReview?.action === 'rejected' ? <XCircle className="w-3.5 h-3.5" /> :
+                   <Clock className="w-3.5 h-3.5" />}
+                </div>
+                <div>
+                  <p className={`text-sm font-medium ${!viewModal.hrReview?.action || viewModal.hrReview?.action !== 'approved' ? 'text-gray-300' : 'text-gray-800'}`}>
+                    Final Approval (Super Admin)
+                    {viewModal.superAdminReview?.action && (
+                      <span className={`ml-1.5 text-xs font-normal ${viewModal.superAdminReview.action === 'approved' ? 'text-green-600' : 'text-red-500'}`}>
+                        — {viewModal.superAdminReview.action}
+                      </span>
+                    )}
+                  </p>
+                  {viewModal.superAdminReview?.reviewedBy
+                    ? <p className="text-xs text-gray-400">by {viewModal.superAdminReview.reviewedBy.name}</p>
+                    : viewModal.hrReview?.action === 'approved'
+                      ? <p className="text-xs text-gray-400">Awaiting Super Admin decision</p>
+                      : <p className="text-xs text-gray-300">Waiting for HR to approve first</p>}
+                  {viewModal.superAdminReview?.comment && (
+                    <p className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1 mt-1">{viewModal.superAdminReview.comment}</p>
+                  )}
+                </div>
+              </div>
+            </div>
             <div className="flex justify-end">
               <button onClick={() => setViewModal(null)} className="btn-secondary">Close</button>
             </div>

@@ -106,7 +106,8 @@ export const deleteAnnouncement = (id) => api.delete(`/announcements/${id}`);
 export const getLeaves = (params) => api.get('/leave', { params });
 export const applyLeave = (data) => api.post('/leave', data);
 export const getLeave = (id) => api.get(`/leave/${id}`);
-export const reviewLeave = (id, data) => api.patch(`/leave/${id}/review`, data);
+export const hrReviewLeave = (id, data) => api.patch(`/leave/${id}/hr-review`, data);
+export const saReviewLeave = (id, data) => api.patch(`/leave/${id}/sa-review`, data);
 export const deleteLeave = (id) => api.delete(`/leave/${id}`);
 
 // Admin Management (super_admin only)
