@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const Announcement = require('../models/Announcement');
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect, adminOnly, hasPermission } = require('../middleware/auth');
 
 // GET /api/announcements — all authenticated users see active announcements
 router.get('/', protect, async (req, res) => {
   try {
     const filter = {};
-    // Employees only see active ones; admin sees all
-    if (req.user.role !== 'admin') {
+    // Employees only see active ones; admin/super_admin sees all
+    if (req.user.role === 'employee') {
       filter.isActive = true;
     }
     const announcements = await Announcement.find(filter)
@@ -20,8 +20,8 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
-// POST /api/announcements — admin creates an announcement
-router.post('/', protect, adminOnly, async (req, res) => {
+// POST /api/announcements — admin with permission creates an announcement
+router.post('/', protect, hasPermission('ANNOUNCEMENTS_MANAGE'), async (req, res) => {
   try {
     const { title, content, priority } = req.body;
     if (!title || !content) {
@@ -41,7 +41,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
 });
 
 // PUT /api/announcements/:id — admin edits an announcement
-router.put('/:id', protect, adminOnly, async (req, res) => {
+router.put('/:id', protect, hasPermission('ANNOUNCEMENTS_MANAGE'), async (req, res) => {
   try {
     const { title, content, priority, isActive } = req.body;
     const announcement = await Announcement.findByIdAndUpdate(
@@ -57,7 +57,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
 });
 
 // DELETE /api/announcements/:id — admin deletes an announcement
-router.delete('/:id', protect, adminOnly, async (req, res) => {
+router.delete('/:id', protect, hasPermission('ANNOUNCEMENTS_MANAGE'), async (req, res) => {
   try {
     const announcement = await Announcement.findByIdAndDelete(req.params.id);
     if (!announcement) return res.status(404).json({ message: 'Announcement not found' });

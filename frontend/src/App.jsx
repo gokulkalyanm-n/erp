@@ -18,6 +18,8 @@ import Tasks from './pages/admin/Tasks';
 import Reports from './pages/admin/Reports';
 import Analytics from './pages/admin/Analytics';
 import Announcements from './pages/admin/Announcements';
+import AdminManagement from './pages/admin/AdminManagement';
+import LeaveManagement from './pages/admin/LeaveManagement';
 
 // Employee
 import EmployeeDashboard from './pages/employee/EmployeeDashboard';
@@ -25,14 +27,25 @@ import MyProjects from './pages/employee/MyProjects';
 import MyTasks from './pages/employee/MyTasks';
 import DailyReports from './pages/employee/DailyReports';
 import Performance from './pages/employee/Performance';
+import MyLeave from './pages/employee/MyLeave';
 
-// Route guards
-function RequireAuth({ children, role }) {
+// Route guard — allows admin AND super_admin
+function RequireAdmin({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <LoadingSpinner fullPage />;
   if (!user) return <Navigate to="/login" replace />;
-  if (role && user.role !== role) {
-    return <Navigate to={user.role === 'admin' ? '/admin' : '/employee'} replace />;
+  if (user.role !== 'admin' && user.role !== 'super_admin') {
+    return <Navigate to="/employee" replace />;
+  }
+  return children;
+}
+
+function RequireEmployee({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingSpinner fullPage />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'employee') {
+    return <Navigate to="/admin" replace />;
   }
   return children;
 }
@@ -40,7 +53,10 @@ function RequireAuth({ children, role }) {
 function RedirectIfAuth() {
   const { user, loading } = useAuth();
   if (loading) return <LoadingSpinner fullPage />;
-  if (user) return <Navigate to={user.role === 'admin' ? '/admin' : '/employee'} replace />;
+  if (user) {
+    if (user.role === 'employee') return <Navigate to="/employee" replace />;
+    return <Navigate to="/admin" replace />;
+  }
   return <Login />;
 }
 
@@ -50,11 +66,11 @@ function AppRoutes() {
       {/* Public */}
       <Route path="/login" element={<RedirectIfAuth />} />
 
-      {/* Admin Routes */}
+      {/* Admin + Super Admin Routes */}
       <Route path="/admin" element={
-        <RequireAuth role="admin">
+        <RequireAdmin>
           <Layout />
-        </RequireAuth>
+        </RequireAdmin>
       }>
         <Route index element={<AdminDashboard />} />
         <Route path="employees" element={<Employees />} />
@@ -64,21 +80,24 @@ function AppRoutes() {
         <Route path="reports" element={<Reports />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="announcements" element={<Announcements />} />
+        <Route path="admin-management" element={<AdminManagement />} />
+        <Route path="leave" element={<LeaveManagement />} />
         <Route path="change-password" element={<ChangePassword />} />
         <Route path="edit-profile" element={<EditProfile />} />
       </Route>
 
       {/* Employee Routes */}
       <Route path="/employee" element={
-        <RequireAuth role="employee">
+        <RequireEmployee>
           <Layout />
-        </RequireAuth>
+        </RequireEmployee>
       }>
         <Route index element={<EmployeeDashboard />} />
         <Route path="projects" element={<MyProjects />} />
         <Route path="tasks" element={<MyTasks />} />
         <Route path="reports" element={<DailyReports />} />
         <Route path="performance" element={<Performance />} />
+        <Route path="leave" element={<MyLeave />} />
         <Route path="change-password" element={<ChangePassword />} />
         <Route path="edit-profile" element={<EditProfile />} />
       </Route>

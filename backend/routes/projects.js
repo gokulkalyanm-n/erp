@@ -2,13 +2,17 @@ const express = require('express');
 const router = express.Router();
 const Project = require('../models/Project');
 const Task = require('../models/Task');
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect, adminOnly, hasPermission } = require('../middleware/auth');
 
 // GET /api/projects — Admin: all, Employee: assigned only
 router.get('/', protect, async (req, res) => {
   try {
     let projects;
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'admin' || req.user.role === 'super_admin') {
+      // Check PROJECT_VIEW permission for regular admins
+      if (req.user.role === 'admin' && !req.user.permissions?.includes('PROJECT_VIEW')) {
+        return res.status(403).json({ message: 'Access denied. Required permission: PROJECT_VIEW' });
+      }
       const { status, priority, search } = req.query;
       const filter = {};
       if (status) filter.status = status;
@@ -35,7 +39,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 // POST /api/projects — Admin only
-router.post('/', protect, adminOnly, async (req, res) => {
+router.post('/', protect, hasPermission('PROJECT_CREATE'), async (req, res) => {
   try {
     const { name, description, client, department, startDate, deadline, priority, assignedEmployees } = req.body;
 
@@ -70,6 +74,11 @@ router.get('/:id', protect, async (req, res) => {
 
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
+    // Admin permission check
+    if (req.user.role === 'admin' && !req.user.permissions?.includes('PROJECT_VIEW')) {
+      return res.status(403).json({ message: 'Access denied. Required permission: PROJECT_VIEW' });
+    }
+
     // Employees can only see their assigned projects
     if (req.user.role === 'employee') {
       const isAssigned = project.assignedEmployees.some(
@@ -85,7 +94,7 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 // PUT /api/projects/:id — Admin only
-router.put('/:id', protect, adminOnly, async (req, res) => {
+router.put('/:id', protect, hasPermission('PROJECT_EDIT'), async (req, res) => {
   try {
     const project = await Project.findByIdAndUpdate(
       req.params.id,
@@ -102,7 +111,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
 });
 
 // PATCH /api/projects/:id/status — Admin only
-router.patch('/:id/status', protect, adminOnly, async (req, res) => {
+router.patch('/:id/status', protect, hasPermission('PROJECT_EDIT'), async (req, res) => {
   try {
     const { status } = req.body;
     const project = await Project.findByIdAndUpdate(
@@ -158,7 +167,7 @@ router.patch('/:id/progress', protect, async (req, res) => {
 });
 
 // DELETE /api/projects/:id — Admin only
-router.delete('/:id', protect, adminOnly, async (req, res) => {
+router.delete('/:id', protect, hasPermission('PROJECT_DELETE'), async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });

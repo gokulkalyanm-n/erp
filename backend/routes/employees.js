@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect, adminOnly, hasPermission } = require('../middleware/auth');
 
-// GET /api/employees — Admin: all employees
-router.get('/', protect, adminOnly, async (req, res) => {
+// GET /api/employees
+router.get('/', protect, hasPermission('EMPLOYEE_VIEW'), async (req, res) => {
   try {
     const { department, isActive, search } = req.query;
     const filter = { role: 'employee' };
@@ -27,7 +27,7 @@ router.get('/', protect, adminOnly, async (req, res) => {
 });
 
 // POST /api/employees — Admin: add employee
-router.post('/', protect, adminOnly, async (req, res) => {
+router.post('/', protect, hasPermission('EMPLOYEE_CREATE'), async (req, res) => {
   try {
     const { employeeId, name, email, password, department, designation, phone, joiningDate, skills, address } = req.body;
 
@@ -87,7 +87,7 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 // PUT /api/employees/:id — Admin: update employee
-router.put('/:id', protect, adminOnly, async (req, res) => {
+router.put('/:id', protect, hasPermission('EMPLOYEE_EDIT'), async (req, res) => {
   try {
     const { employeeId, name, email, department, designation, phone, skills, address, joiningDate } = req.body;
 
@@ -131,7 +131,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
 });
 
 // PATCH /api/employees/:id/toggle-status — Admin: activate/deactivate
-router.patch('/:id/toggle-status', protect, adminOnly, async (req, res) => {
+router.patch('/:id/toggle-status', protect, hasPermission('EMPLOYEE_DELETE'), async (req, res) => {
   try {
     const employee = await User.findById(req.params.id);
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
@@ -149,7 +149,7 @@ router.patch('/:id/toggle-status', protect, adminOnly, async (req, res) => {
 });
 
 // PATCH /api/employees/:id/reset-password — Admin: reset password
-router.patch('/:id/reset-password', protect, adminOnly, async (req, res) => {
+router.patch('/:id/reset-password', protect, hasPermission('EMPLOYEE_EDIT'), async (req, res) => {
   try {
     const { newPassword } = req.body;
     if (!newPassword || newPassword.length < 6)
@@ -168,7 +168,7 @@ router.patch('/:id/reset-password', protect, adminOnly, async (req, res) => {
 });
 
 // DELETE /api/employees/:id — Admin: permanently delete employee
-router.delete('/:id', protect, adminOnly, async (req, res) => {
+router.delete('/:id', protect, hasPermission('EMPLOYEE_DELETE'), async (req, res) => {
   try {
     const employee = await User.findById(req.params.id);
     if (!employee) return res.status(404).json({ message: 'Employee not found' });

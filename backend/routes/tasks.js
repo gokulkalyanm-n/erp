@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Task = require('../models/Task');
 const Project = require('../models/Project');
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect, adminOnly, hasPermission } = require('../middleware/auth');
 
 // GET /api/tasks — Admin: all, Employee: assigned only
 router.get('/', protect, async (req, res) => {
@@ -16,8 +16,12 @@ router.get('/', protect, async (req, res) => {
 
     if (req.user.role === 'employee') {
       filter.assignedTo = req.user._id;
-    } else if (assignedTo) {
-      filter.assignedTo = assignedTo;
+    } else {
+      // Admin needs TASK_VIEW permission
+      if (req.user.role === 'admin' && !req.user.permissions?.includes('TASK_VIEW')) {
+        return res.status(403).json({ message: 'Access denied. Required permission: TASK_VIEW' });
+      }
+      if (assignedTo) filter.assignedTo = assignedTo;
     }
 
     const tasks = await Task.find(filter)
@@ -33,7 +37,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 // POST /api/tasks — Admin only
-router.post('/', protect, adminOnly, async (req, res) => {
+router.post('/', protect, hasPermission('TASK_CREATE'), async (req, res) => {
   try {
     const { title, description, project, assignedTo, priority, dueDate, estimatedHours } = req.body;
 
@@ -83,7 +87,7 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 // PUT /api/tasks/:id — Admin: full update
-router.put('/:id', protect, adminOnly, async (req, res) => {
+router.put('/:id', protect, hasPermission('TASK_EDIT'), async (req, res) => {
   try {
     const task = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true })
       .populate('project', 'name projectId')
@@ -136,7 +140,7 @@ router.post('/:id/comment', protect, async (req, res) => {
 });
 
 // DELETE /api/tasks/:id — Admin only
-router.delete('/:id', protect, adminOnly, async (req, res) => {
+router.delete('/:id', protect, hasPermission('TASK_DELETE'), async (req, res) => {
   try {
     const task = await Task.findByIdAndDelete(req.params.id);
     if (!task) return res.status(404).json({ message: 'Task not found' });

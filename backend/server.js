@@ -23,6 +23,8 @@ app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/announcements', require('./routes/announcements'));
+app.use('/api/leave', require('./routes/leave'));
+app.use('/api/admins', require('./routes/admins'));
 
 // Health check
 app.get('/', (req, res) => res.json({ message: 'MG Solutions ERP API Running' }));

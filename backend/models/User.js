@@ -1,11 +1,33 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+// All available permissions for admins
+const PERMISSIONS = [
+  'EMPLOYEE_VIEW',
+  'EMPLOYEE_CREATE',
+  'EMPLOYEE_EDIT',
+  'EMPLOYEE_DELETE',
+  'PROJECT_VIEW',
+  'PROJECT_CREATE',
+  'PROJECT_EDIT',
+  'PROJECT_DELETE',
+  'TASK_VIEW',
+  'TASK_CREATE',
+  'TASK_EDIT',
+  'TASK_DELETE',
+  'REPORTS_VIEW',
+  'REPORTS_REVIEW',
+  'LEAVE_VIEW',
+  'LEAVE_APPROVE',
+  'ANALYTICS_VIEW',
+  'ANNOUNCEMENTS_MANAGE',
+];
+
 const userSchema = new mongoose.Schema({
   employeeId: {
     type: String,
     unique: true,
-    sparse: true // only for employees, not admin
+    sparse: true
   },
   name: {
     type: String,
@@ -25,8 +47,13 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'employee'],
+    enum: ['super_admin', 'admin', 'employee'],
     default: 'employee'
+  },
+  // Granular permissions — only meaningful for role=admin
+  permissions: {
+    type: [String],
+    default: []
   },
   department: {
     type: String,
@@ -55,6 +82,9 @@ const userSchema = new mongoose.Schema({
   skills: [{ type: String }],
   address: { type: String }
 }, { timestamps: true });
+
+// Export the permissions list for use elsewhere
+userSchema.statics.PERMISSIONS = PERMISSIONS;
 
 // Hash password before saving
 userSchema.pre('save', async function () {

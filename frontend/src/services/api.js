@@ -102,4 +102,21 @@ export const createAnnouncement = (data) => api.post('/announcements', data);
 export const updateAnnouncement = (id, data) => api.put(`/announcements/${id}`, data);
 export const deleteAnnouncement = (id) => api.delete(`/announcements/${id}`);
 
+// Leave
+export const getLeaves = (params) => api.get('/leave', { params });
+export const applyLeave = (data) => api.post('/leave', data);
+export const getLeave = (id) => api.get(`/leave/${id}`);
+export const reviewLeave = (id, data) => api.patch(`/leave/${id}/review`, data);
+export const deleteLeave = (id) => api.delete(`/leave/${id}`);
+
+// Admin Management (super_admin only)
+export const getAdmins = () => api.get('/admins');
+export const createAdmin = (data) => api.post('/admins', data);
+export const getAdmin = (id) => api.get(`/admins/${id}`);
+export const updateAdmin = (id, data) => api.put(`/admins/${id}`, data);
+export const toggleAdminStatus = (id) => api.patch(`/admins/${id}/toggle-status`);
+export const resetAdminPassword = (id, data) => api.patch(`/admins/${id}/reset-password`, data);
+export const deleteAdmin = (id) => api.delete(`/admins/${id}`);
+export const getPermissionsList = () => api.get('/admins/permissions/list');
+
 export default api;

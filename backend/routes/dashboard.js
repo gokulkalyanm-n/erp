@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Project = require('../models/Project');
 const Task = require('../models/Task');
 const DailyReport = require('../models/DailyReport');
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect, adminOnly, hasPermission } = require('../middleware/auth');
 
 // GET /api/dashboard/admin — Admin analytics
 router.get('/admin', protect, adminOnly, async (req, res) => {

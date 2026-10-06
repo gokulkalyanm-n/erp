@@ -1,36 +1,39 @@
 import { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import AnnouncementBanner from './AnnouncementBanner';
 import { useAuth } from '../context/AuthContext';
 import {
   Menu, LayoutDashboard, Users, FolderKanban,
   CheckSquare, FileText, BarChart3, Building2,
-  ShieldCheck, UserCog
+  ShieldCheck, UserCog, CalendarOff
 } from 'lucide-react';
-
-const adminBottomLinks = [
-  { to: '/admin', icon: LayoutDashboard, label: 'Home', end: true },
-  { to: '/admin/employees', icon: Users, label: 'Staff' },
-  { to: '/admin/projects', icon: FolderKanban, label: 'Projects' },
-  { to: '/admin/tasks', icon: CheckSquare, label: 'Tasks' },
-  { to: '/admin/reports', icon: FileText, label: 'Reports' },
-  { to: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
-];
 
 const employeeBottomLinks = [
   { to: '/employee', icon: LayoutDashboard, label: 'Home', end: true },
   { to: '/employee/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/employee/tasks', icon: CheckSquare, label: 'Tasks' },
   { to: '/employee/reports', icon: FileText, label: 'Reports' },
-  { to: '/employee/performance', icon: BarChart3, label: 'Perf.' },
+  { to: '/employee/leave', icon: CalendarOff, label: 'Leave' },
 ];
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user } = useAuth();
-  const bottomLinks = user?.role === 'admin' ? adminBottomLinks : employeeBottomLinks;
-  const basePath = user?.role === 'admin' ? '/admin' : '/employee';
+  const { user, hasPermission } = useAuth();
+  const isEmployee = user?.role === 'employee';
+  const basePath = isEmployee ? '/employee' : '/admin';
+
+  // Admin bottom nav — permission-aware, max 5 items
+  const adminBottomLinks = [
+    { to: '/admin', icon: LayoutDashboard, label: 'Home', end: true, show: true },
+    { to: '/admin/employees', icon: Users, label: 'Staff', show: hasPermission('EMPLOYEE_VIEW') },
+    { to: '/admin/projects', icon: FolderKanban, label: 'Projects', show: hasPermission('PROJECT_VIEW') },
+    { to: '/admin/tasks', icon: CheckSquare, label: 'Tasks', show: hasPermission('TASK_VIEW') },
+    { to: '/admin/reports', icon: FileText, label: 'Reports', show: hasPermission('REPORTS_VIEW') },
+    { to: '/admin/analytics', icon: BarChart3, label: 'Analytics', show: hasPermission('ANALYTICS_VIEW') },
+  ].filter(l => l.show).slice(0, 5);
+
+  const bottomLinks = isEmployee ? employeeBottomLinks : adminBottomLinks;
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -39,12 +42,11 @@ export default function Layout() {
         <Sidebar open={true} onClose={() => {}} />
       </div>
 
-      {/* Mobile sidebar (slide-over) */}
+      {/* Mobile sidebar */}
       <div className="lg:hidden">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       </div>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
         <header className="lg:hidden sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm">
@@ -61,7 +63,6 @@ export default function Layout() {
             </div>
             <span className="font-bold text-gray-900 text-sm">MG Solutions</span>
           </div>
-          {/* Quick access icons in top bar on mobile */}
           <div className="flex items-center gap-1">
             <NavLink
               to={`${basePath}/edit-profile`}
@@ -84,10 +85,9 @@ export default function Layout() {
           </div>
         </header>
 
-        {/* Page content — extra bottom padding for mobile nav */}
+        {/* Page content */}
         <main className="flex-1 overflow-x-hidden pb-20 lg:pb-0">
-          {/* Announcements banner — shown to employees at top of every page */}
-          {user?.role === 'employee' && <AnnouncementBanner />}
+          {isEmployee && <AnnouncementBanner />}
           <Outlet />
         </main>
 

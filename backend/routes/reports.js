@@ -2,12 +2,16 @@ const express = require('express');
 const router = express.Router();
 const DailyReport = require('../models/DailyReport');
 const User = require('../models/User');
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect, adminOnly, hasPermission } = require('../middleware/auth');
 
 // GET /api/reports — Admin: all reports, Employee: own reports
 router.get('/', protect, async (req, res) => {
   try {
     const { employeeId, projectId, startDate, endDate, date } = req.query;
+    // Admin permission check
+    if (req.user.role === 'admin' && !req.user.permissions?.includes('REPORTS_VIEW')) {
+      return res.status(403).json({ message: 'Access denied. Required permission: REPORTS_VIEW' });
+    }
     const filter = {};
 
     if (req.user.role === 'employee') {
@@ -87,7 +91,7 @@ router.post('/', protect, async (req, res) => {
 });
 
 // GET /api/reports/missing — Admin: employees who haven't submitted today
-router.get('/missing', protect, adminOnly, async (req, res) => {
+router.get('/missing', protect, hasPermission('REPORTS_VIEW'), async (req, res) => {
   try {
     const today = new Date();
     const start = new Date(today.setHours(0, 0, 0, 0));
@@ -143,7 +147,7 @@ router.put('/:id', protect, async (req, res) => {
 });
 
 // PATCH /api/reports/:id/review — Admin: review a report
-router.patch('/:id/review', protect, adminOnly, async (req, res) => {
+router.patch('/:id/review', protect, hasPermission('REPORTS_REVIEW'), async (req, res) => {
   try {
     const { comment } = req.body;
     const report = await DailyReport.findByIdAndUpdate(

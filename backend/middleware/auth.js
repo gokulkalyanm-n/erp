@@ -27,9 +27,17 @@ exports.protect = async (req, res, next) => {
   }
 };
 
-// Admin only
+// Super admin only
+exports.superAdminOnly = (req, res, next) => {
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({ message: 'Super Admin access required' });
+  }
+  next();
+};
+
+// Admin or super_admin (any admin-level user)
 exports.adminOnly = (req, res, next) => {
-  if (req.user.role !== 'admin') {
+  if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
     return res.status(403).json({ message: 'Admin access required' });
   }
   next();
@@ -40,5 +48,32 @@ exports.employeeOnly = (req, res, next) => {
   if (req.user.role !== 'employee') {
     return res.status(403).json({ message: 'Employee access only' });
   }
+  next();
+};
+
+/**
+ * hasPermission(permission)
+ * Middleware factory — super_admin bypasses all checks.
+ * Regular admins must have the specified permission in their permissions array.
+ * Employees are always rejected.
+ */
+exports.hasPermission = (permission) => (req, res, next) => {
+  const { role, permissions } = req.user;
+
+  // Super admin bypasses everything
+  if (role === 'super_admin') return next();
+
+  // Must be at least admin
+  if (role !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+
+  // Admin must have the specific permission
+  if (!permissions || !permissions.includes(permission)) {
+    return res.status(403).json({
+      message: `Access denied. Required permission: ${permission}`
+    });
+  }
+
   next();
 };
