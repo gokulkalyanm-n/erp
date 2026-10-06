@@ -1,10 +1,12 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getInitials, avatarColor } from '../utils/helpers';
+import { getLeaves } from '../services/api';
 import {
   LayoutDashboard, Users, FolderKanban, CheckSquare,
   FileText, BarChart3, LogOut, Building2, X,
-  ShieldCheck, UserCog, Megaphone, UserCog2, CalendarOff, ShieldHalf
+  ShieldCheck, UserCog, Megaphone, CalendarOff, ShieldHalf
 } from 'lucide-react';
 
 const employeeLinks = [
@@ -20,6 +22,26 @@ export default function Sidebar({ open, onClose }) {
   const { user, logoutUser, hasPermission, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const basePath = user?.role === 'employee' ? '/employee' : '/admin';
+  const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
+
+  // Fetch pending leave count for admins who can view leave
+  useEffect(() => {
+    const canSeeLeave = isSuperAdmin || hasPermission('LEAVE_VIEW');
+    if (!canSeeLeave || user?.role === 'employee') return;
+
+    getLeaves({ status: 'pending' })
+      .then(res => setPendingLeaveCount(res.data.length))
+      .catch(() => {});
+
+    // Refresh every 2 minutes
+    const interval = setInterval(() => {
+      getLeaves({ status: 'pending' })
+        .then(res => setPendingLeaveCount(res.data.length))
+        .catch(() => {});
+    }, 120000);
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleLogout = () => {
     logoutUser();
@@ -31,15 +53,15 @@ export default function Sidebar({ open, onClose }) {
 
   // Build dynamic admin links based on permissions
   const adminLinks = [
-    { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true, show: true },
-    { to: '/admin/employees', icon: Users, label: 'Employees', show: hasPermission('EMPLOYEE_VIEW') },
-    { to: '/admin/projects', icon: FolderKanban, label: 'Projects', show: hasPermission('PROJECT_VIEW') },
-    { to: '/admin/tasks', icon: CheckSquare, label: 'Tasks', show: hasPermission('TASK_VIEW') },
-    { to: '/admin/reports', icon: FileText, label: 'Daily Reports', show: hasPermission('REPORTS_VIEW') },
-    { to: '/admin/analytics', icon: BarChart3, label: 'Analytics', show: hasPermission('ANALYTICS_VIEW') },
-    { to: '/admin/leave', icon: CalendarOff, label: 'Leave Management', show: hasPermission('LEAVE_VIEW') },
-    { to: '/admin/announcements', icon: Megaphone, label: 'Announcements', show: hasPermission('ANNOUNCEMENTS_MANAGE') },
-    { to: '/admin/admin-management', icon: ShieldHalf, label: 'Admin Management', show: isSuperAdmin },
+    { to: '/admin',                  icon: LayoutDashboard, label: 'Dashboard',        end: true, show: true },
+    { to: '/admin/employees',        icon: Users,           label: 'Employees',         show: hasPermission('EMPLOYEE_VIEW') },
+    { to: '/admin/projects',         icon: FolderKanban,    label: 'Projects',          show: hasPermission('PROJECT_VIEW') },
+    { to: '/admin/tasks',            icon: CheckSquare,     label: 'Tasks',             show: hasPermission('TASK_VIEW') },
+    { to: '/admin/reports',          icon: FileText,        label: 'Daily Reports',     show: hasPermission('REPORTS_VIEW') },
+    { to: '/admin/analytics',        icon: BarChart3,       label: 'Analytics',         show: hasPermission('ANALYTICS_VIEW') },
+    { to: '/admin/leave',            icon: CalendarOff,     label: 'Leave Management',  show: hasPermission('LEAVE_VIEW') || isSuperAdmin, badge: pendingLeaveCount },
+    { to: '/admin/announcements',    icon: Megaphone,       label: 'Announcements',     show: hasPermission('ANNOUNCEMENTS_MANAGE') },
+    { to: '/admin/admin-management', icon: ShieldHalf,      label: 'Admin Management',  show: isSuperAdmin },
   ].filter(l => l.show);
 
   const links = user?.role === 'employee' ? employeeLinks : adminLinks;
@@ -85,7 +107,7 @@ export default function Sidebar({ open, onClose }) {
 
         {/* Nav Links */}
         <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
-          {links.map(({ to, icon: Icon, label, end }) => (
+          {links.map(({ to, icon: Icon, label, end, badge }) => (
             <NavLink
               key={to}
               to={to}
@@ -97,8 +119,18 @@ export default function Sidebar({ open, onClose }) {
                 }`
               }
             >
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              <span>{label}</span>
+              {({ isActive }) => (
+                <>
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="flex-1">{label}</span>
+                  {/* Pending badge — hidden when on the leave page itself */}
+                  {badge > 0 && !isActive && (
+                    <span className="flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center leading-none">
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
