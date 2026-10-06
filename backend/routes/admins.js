@@ -17,7 +17,7 @@ router.get('/', protect, superAdminOnly, async (req, res) => {
   }
 });
 
-// POST /api/admins — super_admin creates an admin
+// POST /api/admins — super_admin creates an admin (fresh user)
 router.post('/', protect, superAdminOnly, async (req, res) => {
   try {
     const { name, email, password, department, designation, phone, permissions } = req.body;
@@ -45,6 +45,46 @@ router.post('/', protect, superAdminOnly, async (req, res) => {
     delete result.password;
 
     res.status(201).json({ message: 'Admin created successfully', admin: result });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/admins/promote/:employeeId — promote existing employee to admin
+router.post('/promote/:employeeId', protect, superAdminOnly, async (req, res) => {
+  try {
+    const { permissions } = req.body;
+
+    const employee = await User.findOne({ _id: req.params.employeeId, role: 'employee' });
+    if (!employee) return res.status(404).json({ message: 'Employee not found or already an admin' });
+
+    employee.role = 'admin';
+    employee.permissions = permissions || [];
+    await employee.save();
+
+    const result = employee.toObject();
+    delete result.password;
+
+    res.json({ message: `${employee.name} promoted to admin`, admin: result });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/admins/demote/:adminId — demote admin back to employee
+router.post('/demote/:adminId', protect, superAdminOnly, async (req, res) => {
+  try {
+    const admin = await User.findOne({ _id: req.params.adminId, role: 'admin' });
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+
+    admin.role = 'employee';
+    admin.permissions = [];
+    await admin.save();
+
+    const result = admin.toObject();
+    delete result.password;
+
+    res.json({ message: `${admin.name} demoted to employee`, user: result });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

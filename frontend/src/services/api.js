@@ -118,5 +118,7 @@ export const toggleAdminStatus = (id) => api.patch(`/admins/${id}/toggle-status`
 export const resetAdminPassword = (id, data) => api.patch(`/admins/${id}/reset-password`, data);
 export const deleteAdmin = (id) => api.delete(`/admins/${id}`);
 export const getPermissionsList = () => api.get('/admins/permissions/list');
+export const promoteEmployee = (employeeId, data) => api.post(`/admins/promote/${employeeId}`, data);
+export const demoteAdmin = (adminId) => api.post(`/admins/demote/${adminId}`);
 
 export default api;
