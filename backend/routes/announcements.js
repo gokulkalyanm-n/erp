@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Announcement = require('../models/Announcement');
 const { protect, adminOnly, hasPermission } = require('../middleware/auth');
-
+const { sendToAll } = require('../services/push');
 // GET /api/announcements — all authenticated users see active announcements
 router.get('/', protect, async (req, res) => {
   try {
@@ -33,7 +33,15 @@ router.post('/', protect, hasPermission('ANNOUNCEMENTS_MANAGE'), async (req, res
       priority: priority || 'normal',
       postedBy: req.user._id
     });
-    const populated = await announcement.populate('postedBy', 'name');
+        const populated = await announcement.populate('postedBy', 'name');
+
+    // Send push notification to all users (admin doesn't wait for it)
+    sendToAll(
+      `${announcement.priority === 'urgent' ? '🚨 ' : ''}${announcement.title}`,
+      announcement.content.slice(0, 150),
+      { type: 'announcement', id: String(announcement._id) }
+    ).catch(err => console.error('Push failed:', err.message));
+
     res.status(201).json(populated);
   } catch (err) {
     res.status(500).json({ message: err.message });

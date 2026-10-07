@@ -80,7 +80,8 @@ const userSchema = new mongoose.Schema({
     default: ''
   },
   skills: [{ type: String }],
-  address: { type: String }
+    address: { type: String },
+  deviceTokens: [{ type: String }]
 }, { timestamps: true });
 
 // Export the permissions list for use elsewhere
