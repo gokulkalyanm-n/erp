@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MG ERP</string>
+    <string name="title_activity_main">MG ERP</string>
+    <string name="package_name">com.mgsolutions.erp</string>
+    <string name="custom_url_scheme">com.mgsolutions.erp</string>
+</resources>

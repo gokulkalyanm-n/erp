@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Leave = require('../models/Leave');
 const { protect } = require('../middleware/auth');
+const { sendToPermission, sendToRoles, sendToUsers } = require('../services/push');
 
 // ─── GET /api/leave ──────────────────────────────────────────────────────────
 // Employee  → own requests only
@@ -85,6 +86,15 @@ router.post('/', protect, async (req, res) => {
     });
 
     await leave.populate('employee', 'name employeeId department');
+
+    // Notify HR admins (users with LEAVE_APPROVE permission)
+    // Fire-and-forget — never block the response
+    sendToPermission('LEAVE_APPROVE',
+      'New Leave Request',
+      `${req.user.name} has applied for ${leaveType} leave (${days} day${days !== 1 ? 's' : ''}).`,
+      { type: 'leave', id: String(leave._id) }
+    ).catch(err => console.error('Push error (leave apply):', err.message));
+
     res.status(201).json({ message: 'Leave request submitted. Awaiting HR review.', leave });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -164,6 +174,23 @@ router.patch('/:id/hr-review', protect, async (req, res) => {
       { path: 'hrReview.reviewedBy', select: 'name role' }
     ]);
 
+    // Notifications — fire-and-forget
+    if (action === 'approved') {
+      // Notify super admins that HR has forwarded a request
+      sendToRoles(['super_admin'],
+        'Leave Request Forwarded',
+        `HR approved ${leave.employee.name}'s ${leave.leaveType} leave. Awaiting your final decision.`,
+        { type: 'leave', id: String(leave._id) }
+      ).catch(err => console.error('Push error (hr forward):', err.message));
+    } else {
+      // Notify the employee their request was rejected by HR
+      sendToUsers([leave.employee._id],
+        'Leave Request Rejected',
+        `Your ${leave.leaveType} leave request was rejected by HR.`,
+        { type: 'leave', id: String(leave._id) }
+      ).catch(err => console.error('Push error (hr reject):', err.message));
+    }
+
     res.json({ message: `Leave request ${action} by HR`, leave });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -205,6 +232,17 @@ router.patch('/:id/sa-review', protect, async (req, res) => {
       { path: 'hrReview.reviewedBy', select: 'name role' },
       { path: 'superAdminReview.reviewedBy', select: 'name role' }
     ]);
+
+    // Notify the employee of the final result — fire-and-forget
+    const resultMsg = action === 'approved'
+      ? `Your ${leave.leaveType} leave request has been approved.`
+      : `Your ${leave.leaveType} leave request has been rejected by the Super Admin.`;
+
+    sendToUsers([leave.employee._id],
+      action === 'approved' ? 'Leave Approved ✅' : 'Leave Rejected',
+      resultMsg,
+      { type: 'leave', id: String(leave._id) }
+    ).catch(err => console.error('Push error (sa review):', err.message));
 
     res.json({ message: `Leave request ${action} by Super Admin`, leave });
   } catch (err) {

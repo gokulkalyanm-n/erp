@@ -3,6 +3,7 @@ const router = express.Router();
 const DailyReport = require('../models/DailyReport');
 const User = require('../models/User');
 const { protect, adminOnly, hasPermission } = require('../middleware/auth');
+const { sendToRoles, sendToUsers } = require('../services/push');
 
 // GET /api/reports — Admin: all reports, Employee: own reports
 router.get('/', protect, async (req, res) => {
@@ -84,6 +85,13 @@ router.post('/', protect, async (req, res) => {
       { path: 'project', select: 'name projectId' }
     ]);
 
+    // Notify all admins and super admins — fire-and-forget
+    sendToRoles(['admin', 'super_admin'],
+      'New Daily Report',
+      `${report.employee.name} submitted a report for ${report.project.name} (${report.hoursWorked}h).`,
+      { type: 'report', id: String(report._id) }
+    ).catch(err => console.error('Push error (report submit):', err.message));
+
     res.status(201).json({ message: 'Report submitted successfully', report });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -163,6 +171,20 @@ router.patch('/:id/review', protect, hasPermission('REPORTS_REVIEW'), async (req
       { new: true }
     );
     if (!report) return res.status(404).json({ message: 'Report not found' });
+
+    // Notify the employee who wrote the report — fire-and-forget
+    // Only notify if the reviewer is not the report author (shouldn't happen, but guard anyway)
+    if (String(report.employee) !== String(req.user._id)) {
+      const msg = comment
+        ? `Your daily report was reviewed. Feedback: "${comment.slice(0, 80)}${comment.length > 80 ? '…' : ''}"`
+        : 'Your daily report has been reviewed by an admin.';
+      sendToUsers([report.employee],
+        'Report Reviewed',
+        msg,
+        { type: 'report', id: String(report._id) }
+      ).catch(err => console.error('Push error (report review):', err.message));
+    }
+
     res.json({ message: 'Report reviewed', report });
   } catch (err) {
     res.status(500).json({ message: err.message });

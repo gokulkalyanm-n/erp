@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { getMe } from '../services/api';
+import { initPush, removePush } from '../services/push';
 
 const AuthContext = createContext(null);
 
@@ -17,6 +18,7 @@ export const AuthProvider = ({ children }) => {
         .then(res => {
           setUser(res.data.user);
           localStorage.setItem('user', JSON.stringify(res.data.user));
+          initPush();
         })
         .catch(() => {
           localStorage.removeItem('token');
@@ -33,9 +35,11 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
+    initPush();
   };
 
-  const logoutUser = () => {
+  const logoutUser = async () => {
+    await removePush();
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
