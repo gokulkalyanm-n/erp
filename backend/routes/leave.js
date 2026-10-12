@@ -27,14 +27,29 @@ router.get('/', protect, async (req, res) => {
       filter.employee = _id;
 
     } else if (role === 'super_admin') {
-      // Super admin sees only what HR has forwarded
+      // Super admin sees only what has been forwarded to them
       filter.stage = { $in: ['super_admin', 'done'] };
       if (employeeId) filter.employee = employeeId;
 
     } else if (role === 'admin' && permissions?.includes('LEAVE_VIEW')) {
-      // HR admin sees requests still at hr stage
-      filter.stage = 'hr';
-      if (employeeId) filter.employee = employeeId;
+      // HR admin sees:
+      //   - employees' requests still at hr stage (if no employeeId filter or filtering others)
+      //   - their own leave requests at any stage
+      if (employeeId) {
+        // Filtering by a specific person — if it's themselves, show all stages
+        if (String(employeeId) === String(_id)) {
+          filter.employee = _id;
+        } else {
+          filter.employee = employeeId;
+          filter.stage = 'hr';
+        }
+      } else {
+        // No filter — show employees' hr-stage requests AND their own requests
+        filter.$or = [
+          { stage: 'hr', employee: { $ne: _id } },
+          { employee: _id }
+        ];
+      }
 
     } else {
       return res.status(403).json({ message: 'Access denied. Required permission: LEAVE_VIEW' });
@@ -60,11 +75,15 @@ router.get('/', protect, async (req, res) => {
 });
 
 // ─── POST /api/leave ─────────────────────────────────────────────────────────
-// Employee submits a leave request → goes to HR (stage='hr')
+// Employee submits → stage='hr' (awaits HR review)
+// HR admin submits → stage='super_admin' (goes directly to super admin)
 router.post('/', protect, async (req, res) => {
   try {
-    if (req.user.role !== 'employee') {
-      return res.status(403).json({ message: 'Only employees can apply for leave' });
+    const { role } = req.user;
+
+    // Only employees and HR admins (role=admin) can apply for leave
+    if (role !== 'employee' && role !== 'admin') {
+      return res.status(403).json({ message: 'Only employees and admins can apply for leave' });
     }
 
     const { leaveType, fromDate, toDate, numberOfDays, reason, additionalInfo } = req.body;
@@ -81,6 +100,10 @@ router.post('/', protect, async (req, res) => {
 
     const days = numberOfDays || Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1;
 
+    // HR admin leave skips HR stage — goes straight to super admin
+    const isHR = role === 'admin';
+    const stage = isHR ? 'super_admin' : 'hr';
+
     const leave = await Leave.create({
       employee: req.user._id,
       leaveType,
@@ -89,23 +112,38 @@ router.post('/', protect, async (req, res) => {
       numberOfDays: days,
       reason,
       additionalInfo: additionalInfo || '',
-      stage:  'hr',
+      stage,
       status: 'pending'
     });
 
     await leave.populate('employee', 'name employeeId department');
 
-    // Notify HR admins ONLY (role=admin + LEAVE_APPROVE permission).
-    // Super admin is NOT notified here — they are notified after HR forwards.
     const appliedAt = formatApplied(leave.createdAt);
-    sendToPermission(
-      'LEAVE_APPROVE',
-      'New Leave Request',
-      `${req.user.name} applied for ${leaveType} leave (${days} day${days !== 1 ? 's' : ''}) on ${appliedAt}`,
-      { type: 'leave', id: String(leave._id) }
-    ).catch(err => console.error('Push error (leave apply):', err.message));
 
-    res.status(201).json({ message: 'Leave request submitted. Awaiting HR review.', leave });
+    if (isHR) {
+      // Notify super admin directly — no HR stage for admin leave
+      sendToRoles(
+        ['super_admin'],
+        'New Leave Request (Admin)',
+        `${req.user.name} applied for ${leaveType} leave (${days} day${days !== 1 ? 's' : ''}) on ${appliedAt}`,
+        { type: 'leave', id: String(leave._id) }
+      ).catch(err => console.error('Push error (admin leave apply):', err.message));
+    } else {
+      // Notify HR admins ONLY — super admin notified after HR forwards
+      sendToPermission(
+        'LEAVE_APPROVE',
+        'New Leave Request',
+        `${req.user.name} applied for ${leaveType} leave (${days} day${days !== 1 ? 's' : ''}) on ${appliedAt}`,
+        { type: 'leave', id: String(leave._id) }
+      ).catch(err => console.error('Push error (leave apply):', err.message));
+    }
+
+    res.status(201).json({
+      message: isHR
+        ? 'Leave request submitted. Awaiting Super Admin approval.'
+        : 'Leave request submitted. Awaiting HR review.',
+      leave
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -127,7 +165,9 @@ router.get('/:id', protect, async (req, res) => {
       if (leave.employee._id.toString() !== _id.toString())
         return res.status(403).json({ message: 'Access denied' });
     } else if (role === 'admin') {
-      if (!permissions?.includes('LEAVE_VIEW'))
+      // HR admin can view: employees' requests they manage, or their own requests
+      const isOwn = leave.employee._id.toString() === _id.toString();
+      if (!isOwn && !permissions?.includes('LEAVE_VIEW'))
         return res.status(403).json({ message: 'Access denied. Required permission: LEAVE_VIEW' });
     }
     // super_admin can always view
@@ -275,6 +315,12 @@ router.delete('/:id', protect, async (req, res) => {
         return res.status(403).json({ message: 'Access denied' });
       if (leave.stage !== 'hr')
         return res.status(400).json({ message: 'Cannot cancel a request that has already been forwarded or decided' });
+    } else if (req.user.role === 'admin') {
+      // HR admin can cancel only their own pending leave
+      if (leave.employee.toString() !== req.user._id.toString())
+        return res.status(403).json({ message: 'Access denied' });
+      if (leave.status !== 'pending')
+        return res.status(400).json({ message: 'Only pending requests can be cancelled' });
     } else if (req.user.role !== 'super_admin') {
       return res.status(403).json({ message: 'Access denied' });
     }

@@ -60,6 +60,7 @@ export default function Sidebar({ open, onClose }) {
     { to: '/admin/reports',          icon: FileText,        label: 'Daily Reports',     show: hasPermission('REPORTS_VIEW') },
     { to: '/admin/analytics',        icon: BarChart3,       label: 'Analytics',         show: hasPermission('ANALYTICS_VIEW') },
     { to: '/admin/leave',            icon: CalendarOff,     label: 'Leave Management',  show: hasPermission('LEAVE_VIEW') || isSuperAdmin, badge: pendingLeaveCount },
+    { to: '/admin/my-leave',         icon: CalendarOff,     label: 'My Leave',           show: !isSuperAdmin },  // HR admin personal leave
     { to: '/admin/announcements',    icon: Megaphone,       label: 'Announcements',     show: hasPermission('ANNOUNCEMENTS_MANAGE') },
     { to: '/admin/admin-management', icon: ShieldHalf,      label: 'Admin Management',  show: isSuperAdmin },
     // External link — always shown to all admins

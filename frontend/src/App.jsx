@@ -20,6 +20,7 @@ import Analytics from './pages/admin/Analytics';
 import Announcements from './pages/admin/Announcements';
 import AdminManagement from './pages/admin/AdminManagement';
 import LeaveManagement from './pages/admin/LeaveManagement';
+import AdminMyLeave from './pages/employee/MyLeave'; // reuse same component
 
 // Employee
 import EmployeeDashboard from './pages/employee/EmployeeDashboard';
@@ -82,6 +83,7 @@ function AppRoutes() {
         <Route path="announcements" element={<Announcements />} />
         <Route path="admin-management" element={<AdminManagement />} />
         <Route path="leave" element={<LeaveManagement />} />
+        <Route path="my-leave" element={<AdminMyLeave />} />
         <Route path="change-password" element={<ChangePassword />} />
         <Route path="edit-profile" element={<EditProfile />} />
       </Route>

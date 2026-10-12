@@ -6,6 +6,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import { formatDate, formatApplied } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 import { Plus, Eye, Trash2, CheckCircle, XCircle, Clock, CalendarOff } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const LEAVE_TYPES = [
   { value: 'sick', label: 'Sick Leave' },
@@ -34,6 +35,7 @@ function calcDays(from, to) {
 }
 
 export default function MyLeave() {
+  const { user } = useAuth();
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -44,7 +46,10 @@ export default function MyLeave() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await getLeaves();
+      // When an admin views their own leave, pass their ID so the backend
+      // returns only their personal requests (not employees' hr-stage ones)
+      const params = user?.role === 'admin' ? { employeeId: user._id } : {};
+      const res = await getLeaves(params);
       setLeaves(res.data);
     } catch { toast.error('Failed to load leave requests'); }
     finally { setLoading(false); }
@@ -159,7 +164,9 @@ export default function MyLeave() {
                     <button onClick={() => setViewModal(l)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600">
                       <Eye className="w-4 h-4" />
                     </button>
-                    {l.stage === 'hr' && l.status === 'pending' && (
+                    {/* Employee cancels at hr stage; admin cancels when still pending */}
+                    {((user?.role === 'employee' && l.stage === 'hr') ||
+                      (user?.role === 'admin' && l.status === 'pending')) && (
                       <button onClick={() => handleCancel(l)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
                         <Trash2 className="w-4 h-4" />
                       </button>
