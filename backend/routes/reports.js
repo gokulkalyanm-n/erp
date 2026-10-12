@@ -212,6 +212,16 @@ router.patch('/:id/reply', protect, async (req, res) => {
     report.employeeReply = { comment: comment.trim(), repliedAt: new Date() };
     await report.save();
 
+    // Notify the admin who reviewed this report
+    if (report.adminReview?.reviewedBy) {
+      sendToUsers(
+        [report.adminReview.reviewedBy],
+        'Employee Replied to Report Review',
+        `${req.user.name} replied to your review: "${comment.trim().slice(0, 80)}${comment.length > 80 ? '…' : ''}"`,
+        { type: 'report', id: String(report._id) }
+      ).catch(err => console.error('Push error (report reply):', err.message));
+    }
+
     res.json({ message: 'Reply submitted', report });
   } catch (err) {
     res.status(500).json({ message: err.message });

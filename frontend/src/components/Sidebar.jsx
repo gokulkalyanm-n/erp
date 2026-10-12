@@ -6,7 +6,7 @@ import { getLeaves } from '../services/api';
 import {
   LayoutDashboard, Users, FolderKanban, CheckSquare,
   FileText, BarChart3, LogOut, Building2, X,
-  ShieldCheck, UserCog, Megaphone, CalendarOff, ShieldHalf
+  ShieldCheck, UserCog, Megaphone, CalendarOff, ShieldHalf, ExternalLink
 } from 'lucide-react';
 
 const employeeLinks = [
@@ -62,6 +62,8 @@ export default function Sidebar({ open, onClose }) {
     { to: '/admin/leave',            icon: CalendarOff,     label: 'Leave Management',  show: hasPermission('LEAVE_VIEW') || isSuperAdmin, badge: pendingLeaveCount },
     { to: '/admin/announcements',    icon: Megaphone,       label: 'Announcements',     show: hasPermission('ANNOUNCEMENTS_MANAGE') },
     { to: '/admin/admin-management', icon: ShieldHalf,      label: 'Admin Management',  show: isSuperAdmin },
+    // External link — always shown to all admins
+    { href: 'https://leads.mgsolutions.sbs', icon: ExternalLink, label: 'Lead Management', show: true, external: true },
   ].filter(l => l.show);
 
   const links = user?.role === 'employee' ? employeeLinks : adminLinks;
@@ -107,31 +109,45 @@ export default function Sidebar({ open, onClose }) {
 
         {/* Nav Links */}
         <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
-          {links.map(({ to, icon: Icon, label, end, badge }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              onClick={handleNav}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span className="flex-1">{label}</span>
-                  {/* Pending badge — hidden when on the leave page itself */}
-                  {badge > 0 && !isActive && (
-                    <span className="flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center leading-none">
-                      {badge > 99 ? '99+' : badge}
-                    </span>
-                  )}
-                </>
-              )}
-            </NavLink>
+          {links.map(({ to, href, icon: Icon, label, end, badge, external }) => (
+            external ? (
+              <a
+                key={href}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleNav}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-gray-400 hover:bg-gray-800 hover:text-white"
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span className="flex-1">{label}</span>
+                <ExternalLink className="w-3 h-3 flex-shrink-0 opacity-50" />
+              </a>
+            ) : (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                onClick={handleNav}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="flex-1">{label}</span>
+                    {badge > 0 && !isActive && (
+                      <span className="flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center leading-none">
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
+                  </>
+                )}
+              </NavLink>
+            )
           ))}
         </nav>
 

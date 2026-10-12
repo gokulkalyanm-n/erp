@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const { protect, adminOnly, hasPermission } = require('../middleware/auth');
+const { sendToUsers } = require('../services/push');
 
 // GET /api/employees
 router.get('/', protect, hasPermission('EMPLOYEE_VIEW'), async (req, res) => {
@@ -63,6 +64,14 @@ router.post('/', protect, hasPermission('EMPLOYEE_CREATE'), async (req, res) => 
 
     const result = employee.toObject();
     delete result.password;
+
+    // Welcome notification — will only fire once the employee logs in and registers a device token
+    sendToUsers(
+      [employee._id],
+      'Welcome to MG Solutions! 👋',
+      `Hi ${name}, your account has been created. Your Employee ID is ${employee.employeeId}.`,
+      { type: 'welcome' }
+    ).catch(err => console.error('Push error (employee create):', err.message));
 
     res.status(201).json({ message: 'Employee created successfully', employee: result });
   } catch (err) {
@@ -138,6 +147,16 @@ router.patch('/:id/toggle-status', protect, hasPermission('EMPLOYEE_DELETE'), as
 
     employee.isActive = !employee.isActive;
     await employee.save();
+
+    // Notify the employee of their account status change
+    sendToUsers(
+      [employee._id],
+      employee.isActive ? 'Account Activated' : 'Account Deactivated',
+      employee.isActive
+        ? 'Your MG Solutions account has been activated. You can now log in.'
+        : 'Your MG Solutions account has been deactivated. Contact admin for help.',
+      { type: 'account' }
+    ).catch(err => console.error('Push error (toggle-status):', err.message));
 
     res.json({
       message: `Employee ${employee.isActive ? 'activated' : 'deactivated'} successfully`,
