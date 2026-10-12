@@ -3,7 +3,7 @@ import { getLeaves, hrReviewLeave, saReviewLeave, getEmployees } from '../../ser
 import PageHeader from '../../components/PageHeader';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { formatDate, formatDateTime } from '../../utils/helpers';
+import { formatDate, formatDateTime, formatApplied } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 import { Eye, CheckCircle, XCircle, Clock, Search, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -244,6 +244,7 @@ export default function LeaveManagement() {
                     <div><span className="text-gray-400">Days: </span><strong>{l.numberOfDays}</strong></div>
                     <div><span className="text-gray-400">From: </span>{formatDate(l.fromDate)}</div>
                     <div><span className="text-gray-400">To: </span>{formatDate(l.toDate)}</div>
+                    <div className="col-span-2"><span className="text-gray-400">Applied: </span>{formatApplied(l.createdAt)}</div>
                   </div>
                   <span className={`${badge.cls} text-xs`}>{badge.text}</span>
                 </div>
@@ -262,12 +263,13 @@ export default function LeaveManagement() {
                     <th className="text-left px-4 py-3 font-medium text-gray-500">From</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500">To</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500">Days</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500">Applied On</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
                     <th className="text-right px-4 py-3 font-medium text-gray-500">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.length === 0 && <tr><td colSpan={7} className="text-center py-12 text-gray-400">{emptyMsg}</td></tr>}
+                  {filtered.length === 0 && <tr><td colSpan={8} className="text-center py-12 text-gray-400">{emptyMsg}</td></tr>}
                   {filtered.map(l => {
                     const badge = stageBadge(l.stage, l.status);
                     return (
@@ -280,6 +282,7 @@ export default function LeaveManagement() {
                         <td className="px-4 py-3 text-gray-600">{formatDate(l.fromDate)}</td>
                         <td className="px-4 py-3 text-gray-600">{formatDate(l.toDate)}</td>
                         <td className="px-4 py-3 font-medium">{l.numberOfDays}d</td>
+                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatApplied(l.createdAt)}</td>
                         <td className="px-4 py-3"><span className={`${badge.cls} text-xs`}>{badge.text}</span></td>
                         <td className="px-4 py-3 text-right">
                           <button onClick={() => { setViewLeave(l); setReviewComment(''); }} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600">
@@ -308,6 +311,7 @@ export default function LeaveManagement() {
               <div><span className="text-gray-400 text-xs block">Days</span><span className="font-medium">{viewLeave.numberOfDays}</span></div>
               <div><span className="text-gray-400 text-xs block">From</span><span className="font-medium">{formatDate(viewLeave.fromDate)}</span></div>
               <div><span className="text-gray-400 text-xs block">To</span><span className="font-medium">{formatDate(viewLeave.toDate)}</span></div>
+              <div className="col-span-2"><span className="text-gray-400 text-xs block">Applied On</span><span className="font-medium">{formatApplied(viewLeave.createdAt)}</span></div>
             </div>
 
             <div>

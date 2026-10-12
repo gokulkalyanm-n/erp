@@ -19,14 +19,37 @@ const DEAD_TOKEN_ERRORS = [
 
 /**
  * Send to an explicit list of tokens in batches of 500.
+ * De-duplicates by user ID first, then by token value, so no user or token
+ * is ever notified twice.
  * Removes dead tokens from all users after each batch.
- * @param {string[]} tokens
+ *
+ * @param {{ userId: string, tokens: string[] }[]} userTokenPairs
  * @param {string} title
  * @param {string} body
  * @param {Object} data  — all values must be strings
  */
-async function _sendToTokens(tokens, title, body, data = {}) {
-  const unique = [...new Set(tokens)];
+async function _sendToTokens(userTokenPairs, title, body, data = {}) {
+  // 1. De-duplicate by user ID
+  const seenUsers = new Set();
+  const dedupedPairs = userTokenPairs.filter(p => {
+    const id = String(p.userId);
+    if (seenUsers.has(id)) return false;
+    seenUsers.add(id);
+    return true;
+  });
+
+  // 2. Flatten tokens, de-duplicate by token value
+  const seenTokens = new Set();
+  const unique = [];
+  for (const p of dedupedPairs) {
+    for (const t of p.tokens) {
+      if (!seenTokens.has(t)) {
+        seenTokens.add(t);
+        unique.push(t);
+      }
+    }
+  }
+
   if (!unique.length) return;
 
   const strData = Object.fromEntries(
@@ -54,16 +77,21 @@ async function _sendToTokens(tokens, title, body, data = {}) {
   }
 }
 
+/** Internal: fetch users matching a mongo filter and build userTokenPairs */
+async function _fetchPairs(filter) {
+  const users = await User.find(
+    { ...filter, isActive: true, 'deviceTokens.0': { $exists: true } },
+    '_id deviceTokens'
+  );
+  return users.map(u => ({ userId: String(u._id), tokens: u.deviceTokens }));
+}
+
 /**
  * Send to ALL active users who have at least one device token.
  */
 async function sendToAll(title, body, data = {}) {
-  const users = await User.find(
-    { isActive: true, 'deviceTokens.0': { $exists: true } },
-    'deviceTokens'
-  );
-  const tokens = users.flatMap(u => u.deviceTokens);
-  await _sendToTokens(tokens, title, body, data);
+  const pairs = await _fetchPairs({});
+  await _sendToTokens(pairs, title, body, data);
 }
 
 /**
@@ -73,48 +101,31 @@ async function sendToAll(title, body, data = {}) {
  */
 async function sendToUsers(userIds, title, body, data = {}) {
   if (!userIds || !userIds.length) return;
-  const users = await User.find(
-    { _id: { $in: userIds }, isActive: true, 'deviceTokens.0': { $exists: true } },
-    'deviceTokens'
-  );
-  const tokens = users.flatMap(u => u.deviceTokens);
-  await _sendToTokens(tokens, title, body, data);
+  const pairs = await _fetchPairs({ _id: { $in: userIds } });
+  await _sendToTokens(pairs, title, body, data);
 }
 
 /**
  * Send to all active users whose role is in the given array.
- * @param {string[]} roles  e.g. ['admin', 'super_admin']
+ * @param {string[]} roles  e.g. ['super_admin']
  */
 async function sendToRoles(roles, title, body, data = {}) {
   if (!roles || !roles.length) return;
-  const users = await User.find(
-    { role: { $in: roles }, isActive: true, 'deviceTokens.0': { $exists: true } },
-    'deviceTokens'
-  );
-  const tokens = users.flatMap(u => u.deviceTokens);
-  await _sendToTokens(tokens, title, body, data);
+  const pairs = await _fetchPairs({ role: { $in: roles } });
+  await _sendToTokens(pairs, title, body, data);
 }
 
 /**
- * Send to all admins (role=admin) who have a specific permission,
- * plus all super_admins.
- * Useful for "notify HR" scenarios.
+ * Send to admins (role='admin') who have a specific permission.
+ * Does NOT include super_admin — use sendToRoles(['super_admin']) for that.
  * @param {string} permission  e.g. 'LEAVE_APPROVE'
  */
 async function sendToPermission(permission, title, body, data = {}) {
-  const users = await User.find(
-    {
-      isActive: true,
-      'deviceTokens.0': { $exists: true },
-      $or: [
-        { role: 'super_admin' },
-        { role: 'admin', permissions: permission },
-      ],
-    },
-    'deviceTokens'
-  );
-  const tokens = users.flatMap(u => u.deviceTokens);
-  await _sendToTokens(tokens, title, body, data);
+  const pairs = await _fetchPairs({
+    role: 'admin',
+    permissions: permission,
+  });
+  await _sendToTokens(pairs, title, body, data);
 }
 
 module.exports = { sendToAll, sendToUsers, sendToRoles, sendToPermission };

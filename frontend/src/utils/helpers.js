@@ -10,6 +10,20 @@ export const formatDateTime = (date) => {
   return format(new Date(date), 'dd MMM yyyy, h:mm a');
 };
 
+/**
+ * Format a date/time in Indian Standard Time.
+ * Output: "07 Oct 2026, 05:20 pm"
+ * Matches the notification body format exactly.
+ */
+export const formatApplied = (d) => {
+  if (!d) return '-';
+  return new Date(d).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+};
+
 export const timeAgo = (date) => {
   if (!date) return '-';
   return formatDistanceToNow(new Date(date), { addSuffix: true });

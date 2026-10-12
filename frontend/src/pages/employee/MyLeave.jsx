@@ -3,7 +3,7 @@ import { getLeaves, applyLeave, deleteLeave } from '../../services/api';
 import PageHeader from '../../components/PageHeader';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { formatDate } from '../../utils/helpers';
+import { formatDate, formatApplied } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 import { Plus, Eye, Trash2, CheckCircle, XCircle, Clock, CalendarOff } from 'lucide-react';
 
@@ -142,6 +142,7 @@ export default function MyLeave() {
                       {formatDate(l.fromDate)} → {formatDate(l.toDate)}
                       <span className="ml-2 font-medium text-gray-700">({l.numberOfDays} day{l.numberOfDays !== 1 ? 's' : ''})</span>
                     </p>
+                    <p className="text-xs text-gray-400 mt-0.5">Applied {formatApplied(l.createdAt)}</p>
                     <p className="text-xs text-gray-400 mt-1 line-clamp-1">{l.reason}</p>
                     {l.status !== 'pending' && l.hrReview?.comment && (
                       <p className="text-xs mt-1.5 bg-gray-50 rounded px-2 py-1 text-gray-600 line-clamp-1">
@@ -229,7 +230,7 @@ export default function MyLeave() {
               <div><span className="text-gray-400 text-xs block">From</span><span className="font-medium">{formatDate(viewModal.fromDate)}</span></div>
               <div><span className="text-gray-400 text-xs block">To</span><span className="font-medium">{formatDate(viewModal.toDate)}</span></div>
               <div><span className="text-gray-400 text-xs block">Days</span><span className="font-medium">{viewModal.numberOfDays}</span></div>
-              <div><span className="text-gray-400 text-xs block">Applied On</span><span className="font-medium">{formatDate(viewModal.createdAt)}</span></div>
+              <div><span className="text-gray-400 text-xs block">Applied On</span><span className="font-medium">{formatApplied(viewModal.createdAt)}</span></div>
             </div>
             <div>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Reason</p>

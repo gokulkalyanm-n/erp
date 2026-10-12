@@ -4,6 +4,14 @@ const Leave = require('../models/Leave');
 const { protect } = require('../middleware/auth');
 const { sendToPermission, sendToRoles, sendToUsers } = require('../services/push');
 
+// Format applied date/time in Indian time — e.g. "07 Oct 2026, 05:20 pm"
+const formatApplied = (d) =>
+  new Date(d).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+
 // ─── GET /api/leave ──────────────────────────────────────────────────────────
 // Employee  → own requests only
 // HR admin  → only requests at stage='hr' (not yet forwarded)
@@ -87,11 +95,13 @@ router.post('/', protect, async (req, res) => {
 
     await leave.populate('employee', 'name employeeId department');
 
-    // Notify HR admins (users with LEAVE_APPROVE permission)
-    // Fire-and-forget — never block the response
-    sendToPermission('LEAVE_APPROVE',
+    // Notify HR admins ONLY (role=admin + LEAVE_APPROVE permission).
+    // Super admin is NOT notified here — they are notified after HR forwards.
+    const appliedAt = formatApplied(leave.createdAt);
+    sendToPermission(
+      'LEAVE_APPROVE',
       'New Leave Request',
-      `${req.user.name} has applied for ${leaveType} leave (${days} day${days !== 1 ? 's' : ''}).`,
+      `${req.user.name} applied for ${leaveType} leave (${days} day${days !== 1 ? 's' : ''}) on ${appliedAt}`,
       { type: 'leave', id: String(leave._id) }
     ).catch(err => console.error('Push error (leave apply):', err.message));
 
@@ -174,17 +184,19 @@ router.patch('/:id/hr-review', protect, async (req, res) => {
       { path: 'hrReview.reviewedBy', select: 'name role' }
     ]);
 
-    // Notifications — fire-and-forget
+    // Notifications — fire-and-forget, one call per action
     if (action === 'approved') {
-      // Notify super admins that HR has forwarded a request
-      sendToRoles(['super_admin'],
+      // Notify super admins ONLY that HR has forwarded the request
+      sendToRoles(
+        ['super_admin'],
         'Leave Request Forwarded',
-        `HR approved ${leave.employee.name}'s ${leave.leaveType} leave. Awaiting your final decision.`,
+        `HR approved ${leave.employee.name}'s ${leave.leaveType} leave. Awaiting your decision.`,
         { type: 'leave', id: String(leave._id) }
       ).catch(err => console.error('Push error (hr forward):', err.message));
     } else {
-      // Notify the employee their request was rejected by HR
-      sendToUsers([leave.employee._id],
+      // Notify the employee — HR rejected, once
+      sendToUsers(
+        [leave.employee._id],
         'Leave Request Rejected',
         `Your ${leave.leaveType} leave request was rejected by HR.`,
         { type: 'leave', id: String(leave._id) }
@@ -233,12 +245,13 @@ router.patch('/:id/sa-review', protect, async (req, res) => {
       { path: 'superAdminReview.reviewedBy', select: 'name role' }
     ]);
 
-    // Notify the employee of the final result — fire-and-forget
+    // Notify the employee of the final result — once, fire-and-forget
     const resultMsg = action === 'approved'
       ? `Your ${leave.leaveType} leave request has been approved.`
-      : `Your ${leave.leaveType} leave request has been rejected by the Super Admin.`;
+      : `Your ${leave.leaveType} leave request has been rejected.`;
 
-    sendToUsers([leave.employee._id],
+    sendToUsers(
+      [leave.employee._id],
       action === 'approved' ? 'Leave Approved ✅' : 'Leave Rejected',
       resultMsg,
       { type: 'leave', id: String(leave._id) }
