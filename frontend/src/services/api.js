@@ -102,6 +102,24 @@ export const createAnnouncement = (data) => api.post('/announcements', data);
 export const updateAnnouncement = (id, data) => api.put(`/announcements/${id}`, data);
 export const deleteAnnouncement = (id) => api.delete(`/announcements/${id}`);
 
+// Payroll
+export const getPayrollSalaries = () => api.get('/payroll/salaries');
+export const updateSalary = (id, data) => api.patch(`/payroll/salaries/${id}`, data);
+export const getPayroll = (params) => api.get('/payroll', { params });
+export const generatePayroll = (data) => api.post('/payroll/generate', data);
+export const updateAdjustments = (id, data) => api.patch(`/payroll/${id}/adjustments`, data);
+export const markPaid = (id) => api.patch(`/payroll/${id}/mark-paid`);
+export const markAllPaid = (data) => api.patch('/payroll/mark-all-paid', data);
+export const getMyPayroll = () => api.get('/payroll/my');
+
+// Attendance
+export const getAttendanceSettings = () => api.get('/attendance/settings');
+export const updateAttendanceSettings = (data) => api.put('/attendance/settings', data);
+export const getMyAttendance = (params) => api.get('/attendance/my', { params });
+export const getDailyAttendance = (params) => api.get('/attendance/daily', { params });
+export const getMonthlyAttendance = (params) => api.get('/attendance/monthly', { params });
+export const getEmployeeAttendance = (id, params) => api.get(`/attendance/employee/${id}`, { params });
+
 // Leave
 export const getLeaves = (params) => api.get('/leave', { params });
 export const applyLeave = (data) => api.post('/leave', data);

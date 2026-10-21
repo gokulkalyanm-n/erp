@@ -6,7 +6,7 @@ import { getLeaves } from '../services/api';
 import {
   LayoutDashboard, Users, FolderKanban, CheckSquare,
   FileText, BarChart3, LogOut, Building2, X,
-  ShieldCheck, UserCog, Megaphone, CalendarOff, ShieldHalf, ExternalLink
+  ShieldCheck, UserCog, Megaphone, CalendarOff, ShieldHalf, ExternalLink, ClipboardList, IndianRupee
 } from 'lucide-react';
 
 const employeeLinks = [
@@ -16,6 +16,8 @@ const employeeLinks = [
   { to: '/employee/reports', icon: FileText, label: 'Daily Reports' },
   { to: '/employee/performance', icon: BarChart3, label: 'Performance' },
   { to: '/employee/leave', icon: CalendarOff, label: 'My Leave' },
+  { to: '/employee/attendance', icon: ClipboardList, label: 'My Attendance' },
+  { to: '/employee/salary', icon: IndianRupee, label: 'My Salary' },
 ];
 
 export default function Sidebar({ open, onClose }) {
@@ -60,8 +62,10 @@ export default function Sidebar({ open, onClose }) {
     { to: '/admin/reports',          icon: FileText,        label: 'Daily Reports',     show: hasPermission('REPORTS_VIEW') },
     { to: '/admin/analytics',        icon: BarChart3,       label: 'Analytics',         show: hasPermission('ANALYTICS_VIEW') },
     { to: '/admin/leave',            icon: CalendarOff,     label: 'Leave Management',  show: hasPermission('LEAVE_VIEW') || isSuperAdmin, badge: pendingLeaveCount },
-    { to: '/admin/my-leave',         icon: CalendarOff,     label: 'My Leave',           show: !isSuperAdmin },  // HR admin personal leave
-    { to: '/admin/announcements',    icon: Megaphone,       label: 'Announcements',     show: hasPermission('ANNOUNCEMENTS_MANAGE') },
+    { to: '/admin/my-leave',         icon: CalendarOff,     label: 'My Leave',           show: !isSuperAdmin },
+    { to: '/admin/attendance',       icon: ClipboardList,   label: 'Attendance',         show: hasPermission('ATTENDANCE_VIEW') || isSuperAdmin },
+    { to: '/admin/payroll',          icon: IndianRupee,     label: 'Payroll',            show: hasPermission('PAYROLL_MANAGE') || isSuperAdmin },
+    { to: '/admin/announcements',    icon: Megaphone,       label: 'Announcements',      show: hasPermission('ANNOUNCEMENTS_MANAGE') },
     { to: '/admin/admin-management', icon: ShieldHalf,      label: 'Admin Management',  show: isSuperAdmin },
     // External link — always shown to all admins
     { href: 'https://leads.mgsolutions.sbs', icon: ExternalLink, label: 'Lead Management', show: true, external: true },

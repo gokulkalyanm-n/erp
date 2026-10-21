@@ -20,8 +20,9 @@ import Analytics from './pages/admin/Analytics';
 import Announcements from './pages/admin/Announcements';
 import AdminManagement from './pages/admin/AdminManagement';
 import LeaveManagement from './pages/admin/LeaveManagement';
+import Attendance from './pages/admin/Attendance';
+import AdminPayroll from './pages/admin/Payroll';
 import AdminMyLeave from './pages/employee/MyLeave'; // reuse same component
-
 // Employee
 import EmployeeDashboard from './pages/employee/EmployeeDashboard';
 import MyProjects from './pages/employee/MyProjects';
@@ -29,6 +30,8 @@ import MyTasks from './pages/employee/MyTasks';
 import DailyReports from './pages/employee/DailyReports';
 import Performance from './pages/employee/Performance';
 import MyLeave from './pages/employee/MyLeave';
+import MyAttendance from './pages/employee/MyAttendance';
+import MySalary from './pages/employee/MySalary';
 
 // Route guard — allows admin AND super_admin
 function RequireAdmin({ children }) {
@@ -84,6 +87,8 @@ function AppRoutes() {
         <Route path="admin-management" element={<AdminManagement />} />
         <Route path="leave" element={<LeaveManagement />} />
         <Route path="my-leave" element={<AdminMyLeave />} />
+        <Route path="attendance" element={<Attendance />} />
+        <Route path="payroll" element={<AdminPayroll />} />
         <Route path="change-password" element={<ChangePassword />} />
         <Route path="edit-profile" element={<EditProfile />} />
       </Route>
@@ -100,6 +105,8 @@ function AppRoutes() {
         <Route path="reports" element={<DailyReports />} />
         <Route path="performance" element={<Performance />} />
         <Route path="leave" element={<MyLeave />} />
+        <Route path="attendance" element={<MyAttendance />} />
+        <Route path="salary" element={<MySalary />} />
         <Route path="change-password" element={<ChangePassword />} />
         <Route path="edit-profile" element={<EditProfile />} />
       </Route>

@@ -21,6 +21,8 @@ const PERMISSIONS = [
   'LEAVE_APPROVE',
   'ANALYTICS_VIEW',
   'ANNOUNCEMENTS_MANAGE',
+  'ATTENDANCE_VIEW',
+  'PAYROLL_MANAGE',
 ];
 
 const userSchema = new mongoose.Schema({
@@ -80,8 +82,9 @@ const userSchema = new mongoose.Schema({
     default: ''
   },
   skills: [{ type: String }],
-    address: { type: String },
-  deviceTokens: [{ type: String }]
+  address: { type: String },
+  deviceTokens: [{ type: String }],
+  monthlySalary: { type: Number, default: 0, min: 0 }
 }, { timestamps: true });
 
 // Export the permissions list for use elsewhere

@@ -32,6 +32,8 @@ const ALL_PERMISSIONS = [
   { key: 'LEAVE_APPROVE',        label: 'Approve / Reject Leave', group: 'Leave' },
   { key: 'ANALYTICS_VIEW',       label: 'View Analytics',         group: 'Other' },
   { key: 'ANNOUNCEMENTS_MANAGE', label: 'Manage Announcements',   group: 'Other' },
+  { key: 'ATTENDANCE_VIEW',      label: 'View Attendance',        group: 'Other' },
+  { key: 'PAYROLL_MANAGE',       label: 'Manage Payroll',         group: 'Other' },
 ];
 
 const GROUPS = ['Employees', 'Projects', 'Tasks', 'Reports', 'Leave', 'Other'];
