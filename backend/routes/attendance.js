@@ -4,6 +4,7 @@ const DailyReport = require('../models/DailyReport');
 const Leave = require('../models/Leave');
 const User = require('../models/User');
 const AttendanceSettings = require('../models/AttendanceSettings');
+const AttendanceCorrection = require('../models/AttendanceCorrection');
 const { protect } = require('../middleware/auth');
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -50,16 +51,16 @@ async function getSettings() {
 /**
  * Classify each day in the range for one employee.
  *
- * @param {string} empId       - employee MongoDB _id string
- * @param {string} startStr    - YYYY-MM-DD (IST)
- * @param {string} endStr      - YYYY-MM-DD (IST)
+ * @param {string} startStr       - YYYY-MM-DD (IST)
+ * @param {string} endStr         - YYYY-MM-DD (IST)
  * @param {Object} settings
- * @param {Map}    reportDates - Set of date strings (YYYY-MM-DD) employee submitted a report
- * @param {Array}  leaves      - approved leaves for the employee (fromDate/toDate already as Dates)
+ * @param {Set}    reportDateSet  - dates employee submitted a report
+ * @param {Array}  leaves         - approved leaves for the employee
+ * @param {Set}    correctionSet  - dates with admin-approved attendance correction
  *
  * Returns { days[], totals{} }
  */
-function classifyDays(startStr, endStr, settings, reportDateSet, leaves) {
+function classifyDays(startStr, endStr, settings, reportDateSet, leaves, correctionSet = new Set()) {
   const today = todayIST();
   const holidaySet = new Set(
     (settings.holidays || []).map(h => toISTDateStr(h.date))
@@ -83,29 +84,27 @@ function classifyDays(startStr, endStr, settings, reportDateSet, leaves) {
 
     workingDays++;
 
-    const hasReport = reportDateSet.has(dateStr);
+    const hasReport     = reportDateSet.has(dateStr);
+    // Admin-approved correction counts the same as a submitted report
+    const hasCorrection = correctionSet.has(dateStr);
 
-    // ── Check leave coverage ──
-    // Leave is "on leave" only when: approved (stage=done, status=approved) AND date is in range
-    // AND no report was submitted that day (report wins)
-    const onLeave = !hasReport && leaves.some(l =>
+    const onLeave = !hasReport && !hasCorrection && leaves.some(l =>
       l.status === 'approved' &&
       l.stage === 'done' &&
       dateStr >= toISTDateStr(l.fromDate) &&
       dateStr <= toISTDateStr(l.toDate)
     );
 
-    if (hasReport) {
+    if (hasReport || hasCorrection) {
       presentDays++;
-      days.push({ date: dateStr, status: 'present' });
+      days.push({ date: dateStr, status: 'present', corrected: hasCorrection && !hasReport });
     } else if (onLeave) {
       leaveDays++;
       days.push({ date: dateStr, status: 'leave' });
     } else {
       noReportDays++;
       days.push({ date: dateStr, status: 'no_report' });
-    }
-  }
+    }  }
 
   const freeLeaves = settings.freeLeavesPerMonth || 2;
   const deductionRate = settings.deductionPerExtraLeave || 0;
@@ -144,13 +143,12 @@ router.put('/settings', protect, async (req, res) => {
     if (req.user.role !== 'super_admin') {
       return res.status(403).json({ message: 'Super Admin access required' });
     }
-    const { weeklyOffDays, holidays, freeLeavesPerMonth, deductionPerExtraLeave } = req.body;
+    const { weeklyOffDays, holidays, freeLeavesPerMonth } = req.body;
     let s = await AttendanceSettings.findOne();
     if (!s) s = new AttendanceSettings();
     if (weeklyOffDays !== undefined) s.weeklyOffDays = weeklyOffDays;
     if (holidays !== undefined) s.holidays = holidays;
     if (freeLeavesPerMonth !== undefined) s.freeLeavesPerMonth = freeLeavesPerMonth;
-    if (deductionPerExtraLeave !== undefined) s.deductionPerExtraLeave = deductionPerExtraLeave;
     await s.save();
     res.json(s);
   } catch (err) {
@@ -202,15 +200,18 @@ router.get('/my', protect, async (req, res) => {
     // add 24h to endDate so the query is inclusive
     const endDateInclusive = new Date(endDate.getTime() + 24 * 60 * 60 * 1000);
 
-    const [settings, reports, leaves] = await Promise.all([
+    const [settings, reports, leaves, corrections] = await Promise.all([
       getSettings(),
       DailyReport.find({ employee: _id, date: { $gte: startDate, $lt: endDateInclusive } }).select('date'),
       Leave.find({ employee: _id, status: 'approved', stage: 'done',
-        fromDate: { $lte: endDateInclusive }, toDate: { $gte: startDate } })
+        fromDate: { $lte: endDateInclusive }, toDate: { $gte: startDate } }),
+      AttendanceCorrection.find({ employee: _id, status: 'approved',
+        date: { $gte: startStr, $lte: endStr } }).select('date')
     ]);
 
-    const reportDateSet = new Set(reports.map(r => toISTDateStr(r.date)));
-    const result = classifyDays(startStr, endStr, settings, reportDateSet, leaves);
+    const reportDateSet  = new Set(reports.map(r => toISTDateStr(r.date)));
+    const correctionSet  = new Set(corrections.map(c => c.date));
+    const result = classifyDays(startStr, endStr, settings, reportDateSet, leaves, correctionSet);
 
     res.json(result);
   } catch (err) {
@@ -239,17 +240,19 @@ router.get('/daily', protect, async (req, res) => {
     const dayStart = parseISTDate(dateStr);
     const dayEnd   = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
-    const [employees, reports, leaves] = await Promise.all([
+    const [employees, reports, leaves, corrections] = await Promise.all([
       User.find({ role: 'employee', isActive: true }).select('name employeeId department joiningDate'),
       DailyReport.find({ date: { $gte: dayStart, $lt: dayEnd } }).select('employee'),
       Leave.find({
         status: 'approved', stage: 'done',
         fromDate: { $lte: dayEnd }, toDate: { $gte: dayStart }
-      }).select('employee')
+      }).select('employee'),
+      AttendanceCorrection.find({ status: 'approved', date: dateStr }).select('employee')
     ]);
 
-    const reportSet = new Set(reports.map(r => String(r.employee)));
-    const leaveSet  = new Set(leaves.map(l => String(l.employee)));
+    const reportSet     = new Set(reports.map(r => String(r.employee)));
+    const leaveSet      = new Set(leaves.map(l => String(l.employee)));
+    const correctionSet = new Set(corrections.map(c => String(c.employee)));
 
     let present = 0, onLeave = 0, noReport = 0;
 
@@ -260,7 +263,7 @@ router.get('/daily', protect, async (req, res) => {
         let status;
         if (isHoliday) {
           status = 'holiday';
-        } else if (reportSet.has(id)) {
+        } else if (reportSet.has(id) || correctionSet.has(id)) {
           status = 'present'; present++;
         } else if (leaveSet.has(id)) {
           status = 'leave'; onLeave++;
@@ -296,14 +299,15 @@ router.get('/monthly', protect, async (req, res) => {
     const startDate = parseISTDate(startStr);
     const endDate   = new Date(parseISTDate(endStr).getTime() + 24 * 60 * 60 * 1000);
 
-    const [settings, employees, reports, leaves] = await Promise.all([
+    const [settings, employees, reports, leaves, corrections] = await Promise.all([
       getSettings(),
       User.find({ role: 'employee', isActive: true }).select('name employeeId department joiningDate'),
       DailyReport.find({ date: { $gte: startDate, $lt: endDate } }).select('employee date'),
       Leave.find({
         status: 'approved', stage: 'done',
         fromDate: { $lte: endDate }, toDate: { $gte: startDate }
-      }).select('employee fromDate toDate status stage')
+      }).select('employee fromDate toDate status stage'),
+      AttendanceCorrection.find({ status: 'approved', date: { $gte: startStr, $lte: endStr } }).select('employee date')
     ]);
 
     // Group reports by employee
@@ -322,20 +326,43 @@ router.get('/monthly', protect, async (req, res) => {
       leavesByEmp.get(id).push(l);
     }
 
+    // Group corrections by employee
+    const correctionsByEmp = new Map();
+    for (const c of corrections) {
+      const id = String(c.employee);
+      if (!correctionsByEmp.has(id)) correctionsByEmp.set(id, new Set());
+      correctionsByEmp.get(id).add(c.date);
+    }
+
     const rows = employees.map(e => {
       const id = String(e._id);
-      // Clamp start to joining date
       const joinStr = toISTDateStr(e.joiningDate || new Date(0));
       const effStart = startStr < joinStr ? joinStr : startStr;
       if (effStart > endStr) {
         return { _id: e._id, name: e.name, employeeId: e.employeeId, department: e.department,
           totals: { workingDays:0, presentDays:0, noReportDays:0, leaveDays:0, paidLeaveDays:0, extraLeaveDays:0, deduction:0 } };
       }
-      const { totals } = classifyDays(effStart, endStr, settings, reportsByEmp.get(id) || new Set(), leavesByEmp.get(id) || []);
+      const { totals } = classifyDays(effStart, endStr, settings,
+        reportsByEmp.get(id) || new Set(),
+        leavesByEmp.get(id) || [],
+        correctionsByEmp.get(id) || new Set()
+      );
       return { _id: e._id, name: e.name, employeeId: e.employeeId, department: e.department, totals };
     });
 
-    res.json({ month, rows });
+    // Calculate total working days for the full month (for display)
+    const [y2, m2] = month.split('-').map(Number);
+    const fullEndStr = `${month}-${String(new Date(y2, m2, 0).getDate()).padStart(2, '0')}`;
+    const holidaySet = new Set((settings.holidays || []).map(h => toISTDateStr(h.date)));
+    let monthWorkingDays = 0;
+    for (const dateStr of dateRange(startStr, fullEndStr)) {
+      const weekday = new Date(dateStr + 'T00:00:00+05:30').getDay();
+      if (!(settings.weeklyOffDays || [0]).includes(weekday) && !holidaySet.has(dateStr)) {
+        monthWorkingDays++;
+      }
+    }
+
+    res.json({ month, monthWorkingDays, rows });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -372,15 +399,18 @@ router.get('/employee/:id', protect, async (req, res) => {
     const startDate = parseISTDate(startStr);
     const endDate   = new Date(parseISTDate(endStr).getTime() + 24 * 60 * 60 * 1000);
 
-    const [settings, reports, leaves] = await Promise.all([
+    const [settings, reports, leaves, corrections] = await Promise.all([
       getSettings(),
       DailyReport.find({ employee: empId, date: { $gte: startDate, $lt: endDate } }).select('date'),
       Leave.find({ employee: empId, status: 'approved', stage: 'done',
-        fromDate: { $lte: endDate }, toDate: { $gte: startDate } })
+        fromDate: { $lte: endDate }, toDate: { $gte: startDate } }),
+      AttendanceCorrection.find({ employee: empId, status: 'approved',
+        date: { $gte: startStr, $lte: endStr } }).select('date')
     ]);
 
     const reportDateSet = new Set(reports.map(r => toISTDateStr(r.date)));
-    const result = classifyDays(startStr, endStr, settings, reportDateSet, leaves);
+    const correctionSet = new Set(corrections.map(c => c.date));
+    const result = classifyDays(startStr, endStr, settings, reportDateSet, leaves, correctionSet);
 
     res.json({ employee: empUser, ...result });
   } catch (err) {

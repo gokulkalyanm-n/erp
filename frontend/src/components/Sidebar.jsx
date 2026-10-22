@@ -6,7 +6,7 @@ import { getLeaves } from '../services/api';
 import {
   LayoutDashboard, Users, FolderKanban, CheckSquare,
   FileText, BarChart3, LogOut, Building2, X,
-  ShieldCheck, UserCog, Megaphone, CalendarOff, ShieldHalf, ExternalLink, ClipboardList, IndianRupee
+  ShieldCheck, UserCog, Megaphone, CalendarOff, ShieldHalf, ExternalLink, ClipboardList, IndianRupee, FolderOpen
 } from 'lucide-react';
 
 const employeeLinks = [
@@ -18,6 +18,7 @@ const employeeLinks = [
   { to: '/employee/leave', icon: CalendarOff, label: 'My Leave' },
   { to: '/employee/attendance', icon: ClipboardList, label: 'My Attendance' },
   { to: '/employee/salary', icon: IndianRupee, label: 'My Salary' },
+  { to: '/employee/documents', icon: FolderOpen, label: 'My Documents' },
 ];
 
 export default function Sidebar({ open, onClose }) {
@@ -65,6 +66,7 @@ export default function Sidebar({ open, onClose }) {
     { to: '/admin/my-leave',         icon: CalendarOff,     label: 'My Leave',           show: !isSuperAdmin },
     { to: '/admin/attendance',       icon: ClipboardList,   label: 'Attendance',         show: hasPermission('ATTENDANCE_VIEW') || isSuperAdmin },
     { to: '/admin/payroll',          icon: IndianRupee,     label: 'Payroll',            show: hasPermission('PAYROLL_MANAGE') || isSuperAdmin },
+    { to: '/admin/documents',        icon: FolderOpen,      label: 'Documents',          show: hasPermission('DOCUMENTS_VIEW') || isSuperAdmin },
     { to: '/admin/announcements',    icon: Megaphone,       label: 'Announcements',      show: hasPermission('ANNOUNCEMENTS_MANAGE') },
     { to: '/admin/admin-management', icon: ShieldHalf,      label: 'Admin Management',  show: isSuperAdmin },
     // External link — always shown to all admins

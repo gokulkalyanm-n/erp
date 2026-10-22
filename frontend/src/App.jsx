@@ -22,6 +22,7 @@ import AdminManagement from './pages/admin/AdminManagement';
 import LeaveManagement from './pages/admin/LeaveManagement';
 import Attendance from './pages/admin/Attendance';
 import AdminPayroll from './pages/admin/Payroll';
+import AdminDocuments from './pages/admin/Documents';
 import AdminMyLeave from './pages/employee/MyLeave'; // reuse same component
 // Employee
 import EmployeeDashboard from './pages/employee/EmployeeDashboard';
@@ -32,6 +33,7 @@ import Performance from './pages/employee/Performance';
 import MyLeave from './pages/employee/MyLeave';
 import MyAttendance from './pages/employee/MyAttendance';
 import MySalary from './pages/employee/MySalary';
+import MyDocuments from './pages/employee/MyDocuments';
 
 // Route guard — allows admin AND super_admin
 function RequireAdmin({ children }) {
@@ -89,6 +91,7 @@ function AppRoutes() {
         <Route path="my-leave" element={<AdminMyLeave />} />
         <Route path="attendance" element={<Attendance />} />
         <Route path="payroll" element={<AdminPayroll />} />
+        <Route path="documents" element={<AdminDocuments />} />
         <Route path="change-password" element={<ChangePassword />} />
         <Route path="edit-profile" element={<EditProfile />} />
       </Route>
@@ -107,6 +110,7 @@ function AppRoutes() {
         <Route path="leave" element={<MyLeave />} />
         <Route path="attendance" element={<MyAttendance />} />
         <Route path="salary" element={<MySalary />} />
+        <Route path="documents" element={<MyDocuments />} />
         <Route path="change-password" element={<ChangePassword />} />
         <Route path="edit-profile" element={<EditProfile />} />
       </Route>

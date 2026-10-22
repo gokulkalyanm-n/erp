@@ -63,9 +63,13 @@ export default function MySalary() {
                         <span className="badge-green flex items-center gap-1 justify-end text-xs">
                           <CheckCircle className="w-3 h-3" /> Paid
                         </span>
-                      ) : (
+                      ) : r.status === 'on_hold' ? (
                         <span className="badge-yellow flex items-center gap-1 justify-end text-xs">
-                          <Clock className="w-3 h-3" /> Pending
+                          <Clock className="w-3 h-3" /> On Hold
+                        </span>
+                      ) : (
+                        <span className="badge-gray flex items-center gap-1 justify-end text-xs">
+                          <Clock className="w-3 h-3" /> Not Released
                         </span>
                       )}
                     </div>
@@ -75,13 +79,13 @@ export default function MySalary() {
                 {/* Expanded breakdown */}
                 {isOpen && (
                   <div className="mt-4 pt-4 border-t border-gray-100 space-y-3 text-sm">
-                    {/* Attendance */}
+                    {/* Attendance pills */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {[
-                        { l: 'Working Days', v: r.workingDays,    c: 'bg-blue-50 text-blue-700'   },
-                        { l: 'Present',      v: r.presentDays,    c: 'bg-green-50 text-green-700' },
-                        { l: 'Leave Days',   v: r.leaveDays,      c: 'bg-red-50 text-red-600'     },
-                        { l: 'Extra Leave',  v: r.extraLeaveDays, c: r.extraLeaveDays > 0 ? 'bg-orange-50 text-orange-700' : 'bg-gray-50 text-gray-400' },
+                        { l: 'Working Days', v: r.workingDays,  c: 'bg-blue-50 text-blue-700'   },
+                        { l: 'Present',      v: r.presentDays,  c: 'bg-green-50 text-green-700' },
+                        { l: 'Absent',       v: r.absentDays,   c: r.absentDays  > 0 ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-400' },
+                        { l: 'On Leave',     v: r.leaveDays,    c: r.leaveDays   > 0 ? 'bg-red-50 text-red-600'    : 'bg-gray-50 text-gray-400' },
                       ].map(x => (
                         <div key={x.l} className={`rounded-xl p-3 text-center ${x.c}`}>
                           <p className="text-base font-bold leading-none">{x.v}</p>
@@ -96,10 +100,26 @@ export default function MySalary() {
                         <span>Monthly Salary</span>
                         <span className="font-medium text-gray-900">{fmt(r.monthlySalary)}</span>
                       </div>
-                      {r.extraLeaveDays > 0 && (
+                      <div className="flex justify-between text-gray-500 text-xs">
+                        <span>Per Day Rate ({r.workingDays} working days)</span>
+                        <span>{fmt(r.perDaySalary)}/day</span>
+                      </div>
+                      {r.absentDays > 0 && (
+                        <div className="flex justify-between text-amber-600">
+                          <span className="flex items-center gap-1"><TrendingDown className="w-3.5 h-3.5" /> Absent ({r.absentDays}d × {fmt(r.perDaySalary)})</span>
+                          <span className="font-medium">− {fmt(parseFloat((r.absentDays * r.perDaySalary).toFixed(2)))}</span>
+                        </div>
+                      )}
+                      {r.leaveDays > 0 && (
                         <div className="flex justify-between text-red-500">
-                          <span>Leave Deduction ({r.extraLeaveDays} × {fmt(r.deductionPerDay)})</span>
-                          <span className="font-medium">− {fmt(r.totalDeduction)}</span>
+                          <span className="flex items-center gap-1"><TrendingDown className="w-3.5 h-3.5" /> Leave ({r.leaveDays}d × {fmt(r.perDaySalary)})</span>
+                          <span className="font-medium">− {fmt(parseFloat((r.leaveDays * r.perDaySalary).toFixed(2)))}</span>
+                        </div>
+                      )}
+                      {r.totalDeduction > 0 && (
+                        <div className="flex justify-between text-gray-500 text-xs border-t border-gray-100 pt-1">
+                          <span>Total deduction ({r.deductedDays} days)</span>
+                          <span className="font-medium text-red-500">− {fmt(r.totalDeduction)}</span>
                         </div>
                       )}
                       {bonus > 0 && (

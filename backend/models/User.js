@@ -23,6 +23,8 @@ const PERMISSIONS = [
   'ANNOUNCEMENTS_MANAGE',
   'ATTENDANCE_VIEW',
   'PAYROLL_MANAGE',
+  'DOCUMENTS_VIEW',
+  'DOCUMENTS_MANAGE',
 ];
 
 const userSchema = new mongoose.Schema({

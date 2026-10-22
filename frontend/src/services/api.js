@@ -110,6 +110,7 @@ export const generatePayroll = (data) => api.post('/payroll/generate', data);
 export const updateAdjustments = (id, data) => api.patch(`/payroll/${id}/adjustments`, data);
 export const markPaid = (id) => api.patch(`/payroll/${id}/mark-paid`);
 export const markAllPaid = (data) => api.patch('/payroll/mark-all-paid', data);
+export const updatePayrollStatus = (id, data) => api.patch(`/payroll/${id}/status`, data);
 export const getMyPayroll = () => api.get('/payroll/my');
 
 // Attendance
@@ -119,6 +120,23 @@ export const getMyAttendance = (params) => api.get('/attendance/my', { params })
 export const getDailyAttendance = (params) => api.get('/attendance/daily', { params });
 export const getMonthlyAttendance = (params) => api.get('/attendance/monthly', { params });
 export const getEmployeeAttendance = (id, params) => api.get(`/attendance/employee/${id}`, { params });
+
+// Documents
+export const uploadEmployeeDoc  = (formData) => api.post('/documents/employee', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const uploadAdminDoc     = (formData) => api.post('/documents/admin', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const getMyDocuments     = () => api.get('/documents/my');
+export const getSharedDocuments = () => api.get('/documents/shared');
+export const getCompanyDocuments= () => api.get('/documents/company');
+export const getAdminDocuments  = (params) => api.get('/documents/admin', { params });
+export const getAdminSharedDocs = () => api.get('/documents/admin/shared');
+export const deleteDocument     = (id) => api.delete(`/documents/${id}`);
+// Download returns the raw binary — use responseType blob
+export const downloadDocument   = (id) => api.get(`/documents/${id}/download`, { responseType: 'blob' });
+
+// Attendance Corrections
+export const submitCorrection  = (data) => api.post('/corrections', data);
+export const getCorrections    = (params) => api.get('/corrections', { params });
+export const reviewCorrection  = (id, data) => api.patch(`/corrections/${id}/review`, data);
 
 // Leave
 export const getLeaves = (params) => api.get('/leave', { params });

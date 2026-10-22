@@ -2,17 +2,28 @@ import { useEffect, useState } from 'react';
 import {
   getPayrollSalaries, updateSalary,
   getPayroll, generatePayroll,
-  updateAdjustments, markPaid, markAllPaid,
-  getAttendanceSettings, updateAttendanceSettings
+  updateAdjustments, markPaid, markAllPaid, updatePayrollStatus
 } from '../../services/api';
 import PageHeader from '../../components/PageHeader';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { getInitials, avatarColor, formatDate } from '../../utils/helpers';
 import toast from 'react-hot-toast';
-import { Edit2, Download, CheckCircle, RefreshCw, Plus, Trash2, IndianRupee, Settings } from 'lucide-react';
+import { Edit2, Download, CheckCircle, RefreshCw, Plus, Trash2, IndianRupee } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Navigate } from 'react-router-dom';
+
+const STATUS_CFG = {
+  not_released: { label: 'Not Released', badge: 'badge-gray'   },
+  on_hold:      { label: 'On Hold',      badge: 'badge-yellow' },
+  paid:         { label: 'Paid',         badge: 'badge-green'  },
+};
+
+const STATUS_OPTIONS = [
+  { value: 'not_released', label: 'Not Released' },
+  { value: 'on_hold',      label: 'On Hold'      },
+  { value: 'paid',         label: 'Paid'         },
+];
 
 /* helpers */
 function currentMonth() {
@@ -25,15 +36,15 @@ function monthLabel(ym) {
 function fmt(n) { return `₹${(n ?? 0).toLocaleString('en-IN')}`; }
 
 function downloadCSV(month, records) {
-  const header = ['Employee','ID','Dept','Salary','Working','Present','Leave','Extra Leave','Deduction/Day','Total Deduction','Bonus','Extra Deduct','Net Salary','Status'];
+  const header = ['Employee','ID','Dept','Salary','Working Days','Present','Absent','Leave','Per Day','Deducted Days','Total Deduction','Bonus','Extra Deduct','Net Salary','Status'];
   const lines = [header.join(',')];
   for (const r of records) {
     const bonus    = r.adjustments.filter(a => a.type === 'bonus').reduce((s, a) => s + a.amount, 0);
     const extraDed = r.adjustments.filter(a => a.type === 'deduction').reduce((s, a) => s + a.amount, 0);
     lines.push([
       `"${r.employee?.name}"`, r.employee?.employeeId || '', `"${r.employee?.department || ''}"`,
-      r.monthlySalary, r.workingDays, r.presentDays, r.leaveDays,
-      r.extraLeaveDays, r.deductionPerDay, r.totalDeduction,
+      r.monthlySalary, r.workingDays, r.presentDays, r.absentDays, r.leaveDays,
+      r.perDaySalary, r.deductedDays, r.totalDeduction,
       bonus, extraDed, r.netSalary, r.status
     ].join(','));
   }
@@ -159,18 +170,12 @@ function MonthlyPayrollTab({ isSuperAdmin }) {
   const [adjModal, setAdj]    = useState(null);   // payroll record
   const [adjList, setAdjList] = useState([]);
   const [savingAdj, setSavingAdj] = useState(false);
-  const [deductionRate, setDeductionRate] = useState(null);
-  const [savingRate, setSavingRate] = useState(false);
 
   const load = async (m) => {
     setLoading(true);
     try {
-      const [pr, sr] = await Promise.all([
-        getPayroll({ month: m }),
-        getAttendanceSettings()
-      ]);
+      const pr = await getPayroll({ month: m });
       setRecords(pr.data.records || []);
-      setDeductionRate(sr.data.deductionPerExtraLeave ?? 0);
     } catch { toast.error('Failed to load'); }
     finally { setLoading(false); }
   };
@@ -196,10 +201,18 @@ function MonthlyPayrollTab({ isSuperAdmin }) {
   };
 
   const handleMarkAllPaid = async () => {
-    if (!window.confirm('Mark all pending records as paid for this month?')) return;
+    if (!window.confirm('Mark all non-paid records as paid for this month?')) return;
     try {
       await markAllPaid({ month });
-      toast.success('All pending marked as paid');
+      toast.success('All records marked as paid');
+      load(month);
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
+  };
+
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      await updatePayrollStatus(id, { status: newStatus });
+      toast.success(`Status updated to ${STATUS_CFG[newStatus]?.label}`);
       load(month);
     } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
   };
@@ -224,16 +237,7 @@ function MonthlyPayrollTab({ isSuperAdmin }) {
     finally { setSavingAdj(false); }
   };
 
-  const saveDeductionRate = async () => {
-    setSavingRate(true);
-    try {
-      await updateAttendanceSettings({ deductionPerExtraLeave: deductionRate });
-      toast.success('Deduction rate saved');
-    } catch { toast.error('Failed to save'); }
-    finally { setSavingRate(false); }
-  };
-
-  const pendingCount = records.filter(r => r.status === 'pending').length;
+  const pendingCount = records.filter(r => r.status !== 'paid').length;
 
   return (
     <div className="space-y-4">
@@ -254,7 +258,7 @@ function MonthlyPayrollTab({ isSuperAdmin }) {
               <button onClick={() => downloadCSV(month, records)} className="btn-secondary flex items-center gap-2">
                 <Download className="w-4 h-4" /> CSV
               </button>
-              {pendingCount > 0 && (
+              {records.some(r => r.status !== 'paid') && (
                 <button onClick={handleMarkAllPaid} className="btn-secondary flex items-center gap-2 text-green-700 hover:bg-green-50">
                   <CheckCircle className="w-4 h-4" /> Mark All Paid
                 </button>
@@ -262,18 +266,6 @@ function MonthlyPayrollTab({ isSuperAdmin }) {
             </>
           )}
         </div>
-
-        {/* Deduction rate — super admin only */}
-        {isSuperAdmin && deductionRate !== null && (
-          <div className="mt-3 pt-3 border-t border-gray-100 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <label className="text-sm font-medium text-gray-600 whitespace-nowrap">Deduction per extra leave day (₹)</label>
-            <input type="number" min="0" className="input w-36"
-              value={deductionRate} onChange={e => setDeductionRate(+e.target.value)} />
-            <button onClick={saveDeductionRate} disabled={savingRate} className="btn-secondary flex items-center gap-1.5">
-              <Settings className="w-3.5 h-3.5" />{savingRate ? 'Saving…' : 'Save Rate'}
-            </button>
-          </div>
-        )}
       </div>
 
       {loading ? <LoadingSpinner /> : records.length === 0 ? (
@@ -290,13 +282,15 @@ function MonthlyPayrollTab({ isSuperAdmin }) {
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="text-left px-4 py-3 font-medium text-gray-500">Employee</th>
                   <th className="text-right px-3 py-3 font-medium text-gray-500 hidden md:table-cell">Salary</th>
-                  <th className="text-center px-3 py-3 font-medium text-gray-500 hidden lg:table-cell">Extra Leave</th>
+                  <th className="text-center px-3 py-3 font-medium text-gray-500 hidden lg:table-cell">Working</th>
+                  <th className="text-center px-3 py-3 font-medium text-gray-500 hidden lg:table-cell">Present</th>
+                  <th className="text-center px-3 py-3 font-medium text-gray-500 hidden sm:table-cell">Absent</th>
+                  <th className="text-center px-3 py-3 font-medium text-gray-500 hidden sm:table-cell">Leave</th>
                   <th className="text-right px-3 py-3 font-medium text-gray-500 hidden md:table-cell">Deduction</th>
-                  <th className="text-right px-3 py-3 font-medium text-gray-500 hidden sm:table-cell">Adjustments</th>
+                  <th className="text-right px-3 py-3 font-medium text-gray-500 hidden sm:table-cell">Adj.</th>
                   <th className="text-right px-3 py-3 font-medium text-gray-500">Net Salary</th>
                   <th className="text-center px-3 py-3 font-medium text-gray-500">Status</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500">Actions</th>
-                </tr>
+                  <th className="text-right px-4 py-3 font-medium text-gray-500">Actions</th>                </tr>
               </thead>
               <tbody>
                 {records.map(r => {
@@ -310,35 +304,50 @@ function MonthlyPayrollTab({ isSuperAdmin }) {
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-900">{r.employee?.name}</p>
                         <p className="text-xs text-gray-400">{r.employee?.employeeId}</p>
+                        <p className="text-xs text-gray-400 hidden lg:block">₹{r.perDaySalary}/day</p>
                       </td>
                       <td className="px-3 py-3 text-right text-gray-600 hidden md:table-cell">{fmt(r.monthlySalary)}</td>
-                      <td className="px-3 py-3 text-center hidden lg:table-cell">
-                        {r.extraLeaveDays > 0 ? <span className="badge-red">{r.extraLeaveDays}</span> : <span className="text-gray-300">0</span>}
+                      <td className="px-3 py-3 text-center text-gray-600 hidden lg:table-cell">{r.workingDays}</td>
+                      <td className="px-3 py-3 text-center text-green-600 font-medium hidden lg:table-cell">{r.presentDays}</td>
+                      <td className="px-3 py-3 text-center hidden sm:table-cell">
+                        {r.absentDays > 0
+                          ? <span className="badge-yellow">{r.absentDays}</span>
+                          : <span className="text-gray-300">0</span>}
+                      </td>
+                      <td className="px-3 py-3 text-center hidden sm:table-cell">
+                        {r.leaveDays > 0
+                          ? <span className="badge-red">{r.leaveDays}</span>
+                          : <span className="text-gray-300">0</span>}
                       </td>
                       <td className="px-3 py-3 text-right text-red-500 hidden md:table-cell">
-                        {r.totalDeduction > 0 ? fmt(r.totalDeduction) : <span className="text-gray-300">—</span>}
+                        {r.totalDeduction > 0
+                          ? <span>− {fmt(r.totalDeduction)}</span>
+                          : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-3 py-3 text-right text-sm hidden sm:table-cell">
                         <span className={r.adjustments.length ? 'text-blue-600' : 'text-gray-300'}>{adjSummary}</span>
                       </td>
                       <td className="px-3 py-3 text-right font-bold text-gray-900">{fmt(r.netSalary)}</td>
                       <td className="px-3 py-3 text-center">
-                        {r.status === 'paid'
-                          ? <span className="badge-green flex items-center gap-1 w-fit mx-auto"><CheckCircle className="w-3 h-3" />Paid</span>
-                          : <span className="badge-yellow">Pending</span>}
+                        <select
+                          value={r.status}
+                          onChange={e => handleStatusChange(r._id, e.target.value)}
+                          className={`text-xs font-medium rounded-full px-2 py-1 border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                            r.status === 'paid'         ? 'bg-green-100 text-green-700' :
+                            r.status === 'on_hold'      ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {STATUS_OPTIONS.map(o => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {r.status === 'pending' && (
-                            <>
-                              <button onClick={() => openAdj(r)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600" title="Adjustments">
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button onClick={() => handleMarkPaid(r._id)} className="p-1.5 rounded hover:bg-green-50 text-gray-400 hover:text-green-600" title="Mark paid">
-                                <CheckCircle className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          )}
+                          <button onClick={() => openAdj(r)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600" title="Adjustments">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
                           {r.status === 'paid' && r.paidOn && (
                             <span className="text-xs text-gray-400">{formatDate(r.paidOn)}</span>
                           )}
@@ -357,8 +366,21 @@ function MonthlyPayrollTab({ isSuperAdmin }) {
       <Modal isOpen={!!adjModal} onClose={() => setAdj(null)} title={`Adjustments — ${adjModal?.employee?.name}`} size="md">
         {adjModal && (
           <div className="space-y-4">
-            <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
-              Base: {fmt(adjModal.monthlySalary)} − deduction {fmt(adjModal.totalDeduction)} = <strong>{fmt(adjModal.monthlySalary - adjModal.totalDeduction)}</strong>
+            <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 space-y-0.5">
+              <div className="flex justify-between">
+                <span>Monthly Salary</span><span className="font-medium">{fmt(adjModal.monthlySalary)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Working Days</span><span>{adjModal.workingDays} days (₹{adjModal.perDaySalary}/day)</span>
+              </div>
+              <div className="flex justify-between text-amber-600">
+                <span>Absent ({adjModal.absentDays}d) + Leave ({adjModal.leaveDays}d) = {adjModal.deductedDays}d deducted</span>
+                <span className="font-medium">− {fmt(adjModal.totalDeduction)}</span>
+              </div>
+              <div className="flex justify-between font-semibold border-t border-gray-200 pt-1">
+                <span>Base (before adjustments)</span>
+                <span>{fmt(adjModal.monthlySalary - adjModal.totalDeduction)}</span>
+              </div>
             </div>
 
             <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -394,7 +416,6 @@ function MonthlyPayrollTab({ isSuperAdmin }) {
                 ))}
               </div>
             )}
-
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => setAdj(null)} className="btn-secondary">Cancel</button>
               <button onClick={saveAdj} disabled={savingAdj} className="btn-primary">

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
   getDailyAttendance, getMonthlyAttendance, getEmployeeAttendance,
-  getAttendanceSettings, updateAttendanceSettings
+  getAttendanceSettings, updateAttendanceSettings,
+  getCorrections, reviewCorrection
 } from '../../services/api';
 import PageHeader from '../../components/PageHeader';
 import Modal from '../../components/Modal';
@@ -11,7 +12,7 @@ import { formatDate } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 import {
   CheckCircle, XCircle, AlertCircle, Calendar, Users,
-  Download, Settings, Plus, Trash2, ChevronRight
+  Download, Settings, Plus, Trash2, ChevronRight, MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Navigate } from 'react-router-dom';
@@ -170,7 +171,6 @@ function MonthlyTab() {
     } catch { toast.error('Failed to load'); }
     finally { setLoading(false); }
   };
-
   useEffect(() => { load(month); }, [month]);
 
   const openDetail = async (emp) => {
@@ -219,7 +219,15 @@ function MonthlyTab() {
       </div>
 
       {loading ? <LoadingSpinner /> : (
-        <div className="card overflow-hidden p-0">
+        <>
+          {/* Month working days summary */}
+          {data?.monthWorkingDays > 0 && (
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5 text-sm text-blue-800 mb-1">
+              <Calendar className="w-4 h-4 flex-shrink-0 text-blue-500" />
+              <span><strong>{data.monthWorkingDays}</strong> total working days in {monthLabel(month)} (excluding weekly offs and holidays)</span>
+            </div>
+          )}
+          <div className="card overflow-hidden p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -275,6 +283,7 @@ function MonthlyTab() {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {/* Detail modal */}
@@ -413,27 +422,20 @@ function SettingsTab() {
         </div>
       </div>
 
-      {/* Leave thresholds */}
+      {/* Leave policy — free leaves only, no per-day rate */}
       <div className="card">
         <h3 className="font-semibold text-gray-800 mb-3">Leave Policy</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="label">Free Leaves Per Month</label>
-            <input
-              type="number" min="0" className="input"
-              value={settings.freeLeavesPerMonth}
-              onChange={e => setSettings({ ...settings, freeLeavesPerMonth: +e.target.value })}
-            />
-            <p className="text-xs text-gray-400 mt-1">Leaves within this count are not deducted</p>
-          </div>
-          <div>
-            <label className="label">Deduction Per Extra Leave Day (₹)</label>
-            <input
-              type="number" min="0" className="input"
-              value={settings.deductionPerExtraLeave}
-              onChange={e => setSettings({ ...settings, deductionPerExtraLeave: +e.target.value })}
-            />
-          </div>
+        <div className="max-w-xs">
+          <label className="label">Free Leaves Per Month</label>
+          <input
+            type="number" min="0" className="input"
+            value={settings.freeLeavesPerMonth}
+            onChange={e => setSettings({ ...settings, freeLeavesPerMonth: +e.target.value })}
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Leaves within this count are not deducted. Beyond this, salary is deducted at
+            (monthly salary ÷ working days) per day automatically.
+          </p>
         </div>
       </div>
 
@@ -491,6 +493,173 @@ function SettingsTab() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   CORRECTIONS TAB
+═══════════════════════════════════════════════════════════════ */
+function CorrectionsTab() {
+  const [corrections, setCorr] = useState([]);
+  const [loading, setLoading]  = useState(true);
+  const [filter, setFilter]    = useState('pending');
+  const [viewItem, setView]    = useState(null);
+  const [adminNote, setNote]   = useState('');
+  const [saving, setSaving]    = useState(false);
+
+  const load = async (s) => {
+    setLoading(true);
+    try {
+      const res = await getCorrections(s ? { status: s } : {});
+      setCorr(res.data);
+    } catch { toast.error('Failed to load corrections'); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(filter); }, [filter]);
+
+  const handleReview = async (action) => {
+    setSaving(true);
+    try {
+      await reviewCorrection(viewItem._id, { action, adminNote });
+      toast.success(`Correction ${action}`);
+      setView(null);
+      setNote('');
+      load(filter);
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
+    finally { setSaving(false); }
+  };
+
+  const pendingCount = corrections.filter(c => c.status === 'pending').length;
+
+  return (
+    <div className="space-y-4">
+      {/* Filter */}
+      <div className="card">
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="text-sm font-medium text-gray-600">Show</label>
+          {['pending','approved','rejected',''].map(s => (
+            <button key={s} onClick={() => setFilter(s)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                filter === s ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}>
+              {s === '' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+              {s === 'pending' && pendingCount > 0 && (
+                <span className="ml-1.5 bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5 leading-none">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? <LoadingSpinner /> : corrections.length === 0 ? (
+        <div className="card text-center py-10 text-gray-400">
+          <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
+          <p>No correction requests found.</p>
+        </div>
+      ) : (
+        <div className="card overflow-hidden p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Employee</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Date</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Reason</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-500">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {corrections.map(c => (
+                  <tr key={c._id} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-900">{c.employee?.name}</p>
+                      <p className="text-xs text-gray-400">{c.employee?.employeeId}</p>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-sm text-gray-700">{c.date}</td>
+                    <td className="px-4 py-3 text-gray-600 hidden md:table-cell max-w-xs truncate">{c.reason}</td>
+                    <td className="px-4 py-3">
+                      {c.status === 'pending'  && <span className="badge-yellow">Pending</span>}
+                      {c.status === 'approved' && <span className="badge-green flex items-center gap-1 w-fit"><CheckCircle className="w-3 h-3" />Approved</span>}
+                      {c.status === 'rejected' && <span className="badge-red flex items-center gap-1 w-fit"><XCircle className="w-3 h-3" />Rejected</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button onClick={() => { setView(c); setNote(''); }}
+                        className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600">
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Review modal */}
+      <Modal isOpen={!!viewItem} onClose={() => setView(null)} title="Attendance Correction Request" size="md">
+        {viewItem && (
+          <div className="space-y-4 text-sm">
+            <div className="grid grid-cols-2 gap-3">
+              <div><span className="text-gray-400 text-xs block">Employee</span><span className="font-medium">{viewItem.employee?.name}</span></div>
+              <div><span className="text-gray-400 text-xs block">Employee ID</span><span className="font-mono text-blue-600">{viewItem.employee?.employeeId}</span></div>
+              <div><span className="text-gray-400 text-xs block">Date</span><span className="font-medium font-mono">{viewItem.date}</span></div>
+              <div><span className="text-gray-400 text-xs block">Status</span>
+                <span className={`${viewItem.status === 'approved' ? 'text-green-600' : viewItem.status === 'rejected' ? 'text-red-500' : 'text-yellow-600'} font-medium capitalize`}>
+                  {viewItem.status}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Employee's Reason</p>
+              <p className="bg-gray-50 rounded-lg p-3 text-gray-700">{viewItem.reason}</p>
+            </div>
+
+            {viewItem.status === 'pending' && (
+              <div className="border-t pt-4 space-y-3">
+                <div>
+                  <label className="label">Admin Note (optional)</label>
+                  <textarea className="input" rows={2} placeholder="Add a note for the employee…"
+                    value={adminNote} onChange={e => setNote(e.target.value)} />
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleReview('approved')}
+                    disabled={saving}
+                    className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+                  >
+                    <CheckCircle className="w-4 h-4" /> Mark as Present
+                  </button>
+                  <button
+                    onClick={() => handleReview('rejected')}
+                    disabled={saving}
+                    className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+                  >
+                    <XCircle className="w-4 h-4" /> Reject
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {viewItem.status !== 'pending' && viewItem.adminNote && (
+              <div className={`rounded-lg p-3 border ${viewItem.status === 'approved' ? 'bg-green-50 border-green-100 text-green-800' : 'bg-red-50 border-red-100 text-red-700'}`}>
+                <p className="text-xs font-semibold mb-1">Admin Note</p>
+                <p>{viewItem.adminNote}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <button onClick={() => setView(null)} className="btn-secondary">Close</button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
    MAIN PAGE
 ═══════════════════════════════════════════════════════════════ */
 export default function Attendance() {
@@ -500,8 +669,9 @@ export default function Attendance() {
   }
 
   const tabs = [
-    { key: 'daily',   label: 'Daily' },
-    { key: 'monthly', label: 'Monthly Report' },
+    { key: 'daily',       label: 'Daily' },
+    { key: 'monthly',     label: 'Monthly Report' },
+    { key: 'corrections', label: 'Corrections', icon: MessageSquare },
     ...(isSuperAdmin ? [{ key: 'settings', label: 'Settings', icon: Settings }] : []),
   ];
 
@@ -527,9 +697,10 @@ export default function Attendance() {
         ))}
       </div>
 
-      {tab === 'daily'    && <DailyTab />}
-      {tab === 'monthly'  && <MonthlyTab />}
-      {tab === 'settings' && isSuperAdmin && <SettingsTab />}
+      {tab === 'daily'       && <DailyTab />}
+      {tab === 'monthly'     && <MonthlyTab />}
+      {tab === 'corrections' && <CorrectionsTab />}
+      {tab === 'settings'    && isSuperAdmin && <SettingsTab />}
     </div>
   );
 }
