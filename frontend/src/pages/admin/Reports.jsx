@@ -107,18 +107,13 @@ export default function Reports() {
         <>
           {/* Filters */}
           <div className="card mb-4">
-            <div className="flex flex-col gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input className="input pl-9" placeholder="Search employee or project..." value={search} onChange={e => setSearch(e.target.value)} />
-              </div>
-              <div className="flex gap-3">
-                <select className="input flex-1" value={filterEmp} onChange={e => setFilterEmp(e.target.value)}>
-                  <option value="">All Employees</option>
-                  {employees.map(e => <option key={e._id} value={e._id}>{e.name}</option>)}
-                </select>
-                <input type="date" className="input flex-1" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <input className="input sm:col-span-1" placeholder="Search employee or project..." value={search} onChange={e => setSearch(e.target.value)} />
+              <select className="input" value={filterEmp} onChange={e => setFilterEmp(e.target.value)}>
+                <option value="">All Employees</option>
+                {employees.map(e => <option key={e._id} value={e._id}>{e.name}</option>)}
+              </select>
+              <input type="date" className="input" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
             </div>
           </div>
 

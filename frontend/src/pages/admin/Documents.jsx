@@ -162,12 +162,9 @@ export default function AdminDocuments() {
         <div className="space-y-4">
           {/* Filters */}
           <div className="card">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="relative sm:col-span-2 lg:col-span-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                <input className="input pl-9" placeholder="Search by title…"
-                  value={search} onChange={e => setSearch(e.target.value)} />
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input className="input sm:col-span-2" placeholder="Search by title…"
+                value={search} onChange={e => setSearch(e.target.value)} />
               <select className="input" value={filterEmp} onChange={e => setFilterEmp(e.target.value)}>
                 <option value="">All Employees</option>
                 {employees.map(e => <option key={e._id} value={e._id}>{e.name} ({e.employeeId})</option>)}
@@ -176,10 +173,14 @@ export default function AdminDocuments() {
                 <option value="">All Categories</option>
                 {EMP_CATEGORIES_ALL.map(c => <option key={c}>{c}</option>)}
               </select>
-              <div className="flex gap-2">
-                <input type="date" className="input flex-1" value={filterStart}
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">From date</label>
+                <input type="date" className="input" value={filterStart}
                   onChange={e => setFilterStart(e.target.value)} />
-                <input type="date" className="input flex-1" value={filterEnd}
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">To date</label>
+                <input type="date" className="input" value={filterEnd}
                   onChange={e => setFilterEnd(e.target.value)} />
               </div>
             </div>

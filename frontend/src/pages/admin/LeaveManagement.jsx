@@ -203,11 +203,8 @@ export default function LeaveManagement() {
 
       {/* Filters */}
       <div className="card mb-4 lg:mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            <input className="input pl-9" placeholder="Search employee..." value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <input className="input" placeholder="Search employee..." value={search} onChange={e => setSearch(e.target.value)} />
           <select className="input" value={filterEmp} onChange={e => setFilterEmp(e.target.value)}>
             <option value="">All Employees</option>
             {employees.map(e => <option key={e._id} value={e._id}>{e.name}</option>)}

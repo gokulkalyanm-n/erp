@@ -17,6 +17,7 @@ const STATUS_CFG = {
   not_released: { label: 'Not Released', badge: 'badge-gray'   },
   on_hold:      { label: 'On Hold',      badge: 'badge-yellow' },
   paid:         { label: 'Paid',         badge: 'badge-green'  },
+  pending:      { label: 'Not Released', badge: 'badge-gray'   }, // legacy
 };
 
 const STATUS_OPTIONS = [
@@ -330,7 +331,7 @@ function MonthlyPayrollTab({ isSuperAdmin }) {
                       <td className="px-3 py-3 text-right font-bold text-gray-900">{fmt(r.netSalary)}</td>
                       <td className="px-3 py-3 text-center">
                         <select
-                          value={r.status}
+                          value={r.status === 'pending' ? 'not_released' : r.status}
                           onChange={e => handleStatusChange(r._id, e.target.value)}
                           className={`text-xs font-medium rounded-full px-2 py-1 border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                             r.status === 'paid'         ? 'bg-green-100 text-green-700' :

@@ -68,6 +68,7 @@ export default function MySalary() {
                           <Clock className="w-3 h-3" /> On Hold
                         </span>
                       ) : (
+                        // 'not_released' or legacy 'pending'
                         <span className="badge-gray flex items-center gap-1 justify-end text-xs">
                           <Clock className="w-3 h-3" /> Not Released
                         </span>

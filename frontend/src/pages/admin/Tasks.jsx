@@ -98,10 +98,7 @@ export default function Tasks() {
 
       <div className="card mb-4 lg:mb-6">
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input className="input pl-9" placeholder="Search tasks..." value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
+          <input className="input flex-1" placeholder="Search tasks..." value={search} onChange={e => setSearch(e.target.value)} />
           <select className="input sm:w-44" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
             <option value="">All Status</option>
             <option value="todo">Todo</option>

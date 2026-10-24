@@ -116,10 +116,7 @@ export default function Employees() {
       {/* Filters */}
       <div className="card mb-4 lg:mb-6">
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input className="input pl-9" placeholder="Search by name, email, ID..." value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
+          <input className="input flex-1" placeholder="Search by name, email, ID..." value={search} onChange={e => setSearch(e.target.value)} />
           <select className="input sm:w-40" value={filterActive} onChange={e => setFilterActive(e.target.value)}>
             <option value="">All Status</option>
             <option value="true">Active</option>

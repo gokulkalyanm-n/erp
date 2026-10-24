@@ -24,14 +24,14 @@ const payrollSchema = new mongoose.Schema({
   // ── Attendance snapshot (frozen at generation time) ──
   workingDays: { type: Number, required: true },
   presentDays: { type: Number, required: true },
-  absentDays:  { type: Number, required: true },  // no report submitted (not corrected)
-  leaveDays:   { type: Number, required: true },  // approved leave days
+  absentDays:  { type: Number, default: 0 },
+  leaveDays:   { type: Number, required: true },
 
   // ── Salary snapshot ──
   monthlySalary:  { type: Number, required: true, min: 0 },
-  perDaySalary:   { type: Number, required: true, min: 0 },  // monthlySalary / workingDays
-  deductedDays:   { type: Number, required: true, min: 0 },  // absentDays + leaveDays
-  totalDeduction: { type: Number, required: true, min: 0 },  // deductedDays * perDaySalary
+  perDaySalary:   { type: Number, default: 0, min: 0 },
+  deductedDays:   { type: Number, default: 0, min: 0 },
+  totalDeduction: { type: Number, default: 0, min: 0 },
 
   // ── Optional adjustments ──
   adjustments: { type: [adjustmentSchema], default: [] },
@@ -40,7 +40,8 @@ const payrollSchema = new mongoose.Schema({
   netSalary: { type: Number, required: true, min: 0 },
 
   // ── Payment ──
-  status: { type: String, enum: ['not_released', 'on_hold', 'paid'], default: 'not_released' },
+  // 'pending' kept for backward compatibility with old records — treated same as 'not_released'
+  status: { type: String, enum: ['not_released', 'on_hold', 'paid', 'pending'], default: 'not_released' },
   paidOn: { type: Date },
   paidBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });

@@ -5,7 +5,7 @@ import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { formatDate, statusColor, priorityColor } from '../../utils/helpers';
 import toast from 'react-hot-toast';
-import { Plus, Edit2, Trash2, Users, Calendar, Search, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users, Calendar, X } from 'lucide-react';
 
 const emptyForm = {
   name: '', description: '', client: '', department: '',
@@ -118,18 +118,13 @@ export default function Projects() {
       />
 
       <div className="card mb-4 lg:mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Search */}
-          <div className="relative sm:col-span-2 lg:col-span-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            <input
-              className="input pl-9"
-              placeholder="Search projects..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          <input
+            className="input sm:col-span-2 xl:col-span-1"
+            placeholder="Search projects..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
           {/* Status */}
           <select className="input" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
             <option value="">All Status</option>
