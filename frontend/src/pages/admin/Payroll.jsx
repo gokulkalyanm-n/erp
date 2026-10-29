@@ -316,9 +316,14 @@ function MonthlyPayrollTab({ isSuperAdmin }) {
                           : <span className="text-gray-300">0</span>}
                       </td>
                       <td className="px-3 py-3 text-center hidden sm:table-cell">
-                        {r.leaveDays > 0
-                          ? <span className="badge-red">{r.leaveDays}</span>
-                          : <span className="text-gray-300">0</span>}
+                        {r.leaveDays > 0 ? (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span className="text-xs text-gray-500">{r.leaveDays}d total</span>
+                            {(r.extraLeaveDays || 0) > 0
+                              ? <span className="badge-red text-xs">{r.extraLeaveDays}d extra</span>
+                              : <span className="badge-green text-xs">paid</span>}
+                          </div>
+                        ) : <span className="text-gray-300">0</span>}
                       </td>
                       <td className="px-3 py-3 text-right text-red-500 hidden md:table-cell">
                         {r.totalDeduction > 0
