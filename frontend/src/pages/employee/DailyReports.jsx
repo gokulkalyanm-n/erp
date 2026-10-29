@@ -45,7 +45,8 @@ export default function DailyReports() {
 
   const openAdd = () => {
     setEditReport(null);
-    setForm(emptyForm);
+    // Always lock new reports to today
+    setForm({ ...emptyForm, date: new Date().toISOString().slice(0, 10) });
     setShowModal(true);
   };
 
@@ -202,12 +203,22 @@ export default function DailyReports() {
       )}
 
       {/* Submit/Edit Modal */}
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editReport ? 'Edit Report' : 'Submit Daily Report'} size="lg">
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editReport ? 'Edit Report' : 'Submit Today\'s Report'} size="lg">
         <form onSubmit={handleSave} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Date</label>
-              <input type="date" className="input" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+              {editReport ? (
+                /* Editing an existing report — show its original date (read-only) */
+                <div className="input bg-gray-50 text-gray-500 cursor-not-allowed">
+                  {formatDate(form.date)}
+                </div>
+              ) : (
+                /* New report — always today, not editable */
+                <div className="input bg-gray-50 text-gray-600 font-medium">
+                  Today — {formatDate(form.date)}
+                </div>
+              )}
             </div>
             <div>
               <label className="label">Project *</label>
