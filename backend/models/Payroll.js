@@ -22,10 +22,11 @@ const payrollSchema = new mongoose.Schema({
   month:    { type: String, required: true },  // YYYY-MM
 
   // ── Attendance snapshot (frozen at generation time) ──
-  workingDays: { type: Number, required: true },
-  presentDays: { type: Number, required: true },
-  absentDays:  { type: Number, default: 0 },
-  leaveDays:   { type: Number, required: true },
+  workingDays:    { type: Number, required: true },
+  presentDays:    { type: Number, required: true },
+  absentDays:     { type: Number, default: 0 },
+  leaveDays:      { type: Number, required: true },
+  extraLeaveDays: { type: Number, default: 0 },  // leaveDays - freeLeavesPerMonth (≥0)
 
   // ── Salary snapshot ──
   monthlySalary:  { type: Number, required: true, min: 0 },

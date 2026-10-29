@@ -84,20 +84,23 @@ function classifyDays(startStr, endStr, settings, reportDateSet, leaves, correct
     }
   }
 
-  const absentDays = workingDays - presentDays - leaveDays;
-  return { workingDays, presentDays, absentDays, leaveDays };
+  const absentDays    = workingDays - presentDays - leaveDays;
+  const freeLeaves    = settings.freeLeavesPerMonth ?? 2;
+  const paidLeaveDays = Math.min(leaveDays, freeLeaves);
+  const extraLeaveDays = Math.max(0, leaveDays - freeLeaves);
+  return { workingDays, presentDays, absentDays, leaveDays, paidLeaveDays, extraLeaveDays };
 }
 
 /**
  * Compute net salary from attendance snapshot + adjustments.
- * perDaySalary = monthlySalary / workingDays  (0 if workingDays === 0)
- * deductedDays = absentDays + leaveDays
- * totalDeduction = deductedDays * perDaySalary
+ * perDaySalary   = monthlySalary / workingDays  (0 if workingDays === 0)
+ * deductedDays   = absentDays + extraLeaveDays  (paid leaves are NOT deducted)
+ * totalDeduction = deductedDays × perDaySalary
  * net = max(0, monthlySalary - totalDeduction + bonus - extraDeduction)
  */
-function calcNet(salary, workingDays, absentDays, leaveDays, adjustments = []) {
+function calcNet(salary, workingDays, absentDays, extraLeaveDays, adjustments = []) {
   const perDay    = workingDays > 0 ? salary / workingDays : 0;
-  const deducted  = absentDays + leaveDays;
+  const deducted  = absentDays + extraLeaveDays;
   const totalDed  = parseFloat((deducted * perDay).toFixed(2));
   const adjDelta  = adjustments.reduce((acc, a) =>
     a.type === 'bonus' ? acc + a.amount : acc - a.amount, 0);
@@ -215,7 +218,7 @@ router.post('/generate', protect, async (req, res) => {
 
       const adjList = existing?.adjustments || [];
       const { perDaySalary, deductedDays, totalDeduction, netSalary } =
-        calcNet(salary, att.workingDays, att.absentDays, att.leaveDays, adjList);
+        calcNet(salary, att.workingDays, att.absentDays, att.extraLeaveDays, adjList);
 
       const data = {
         employee:       emp._id,
@@ -224,6 +227,7 @@ router.post('/generate', protect, async (req, res) => {
         presentDays:    att.presentDays,
         absentDays:     att.absentDays,
         leaveDays:      att.leaveDays,
+        extraLeaveDays: att.extraLeaveDays,
         monthlySalary:  salary,
         perDaySalary,
         deductedDays,
@@ -268,7 +272,7 @@ router.patch('/:id/adjustments', protect, async (req, res) => {
 
     record.adjustments = adjustments;
     const { perDaySalary, deductedDays, totalDeduction, netSalary } =
-      calcNet(record.monthlySalary, record.workingDays, record.absentDays, record.leaveDays, adjustments);
+      calcNet(record.monthlySalary, record.workingDays, record.absentDays, record.extraLeaveDays || 0, adjustments);
     record.perDaySalary   = perDaySalary;
     record.deductedDays   = deductedDays;
     record.totalDeduction = totalDeduction;
